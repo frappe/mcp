@@ -1,0 +1,25 @@
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+/env/
+/venv/
+
+# macOS
+.DS_Store
+Thumbs.db
+
+# Windows
+Thumbs.db
+Desktop.ini
+
+.vscode/
+
+*_temp.*
+temp.*
+temp/
+
+schema.ts
