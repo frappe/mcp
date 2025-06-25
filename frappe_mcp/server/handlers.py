@@ -1,16 +1,67 @@
-def handle_initialize(params): ...
-def handle_ping(params): ...
-def handle_complete(params): ...
-def handle_set_level(params): ...
-def handle_get_prompt(params): ...
-def handle_list_prompts(params): ...
-def handle_list_resources(params): ...
-def handle_list_resource_templates(params): ...
-def handle_read_resource(params): ...
-def handle_subscribe(params): ...
-def handle_unsubscribe(params): ...
+def handle_initialize(params):
+    """
+    Handles the initialize request from the client.
+    """
+    return {
+        "protocolVersion": "2025-06-18",
+        "serverInfo": {"name": "frappe-mcp", "version": "0.1.0"},
+        "capabilities": {
+            "tools": {"listChanged": False},
+            # Not yet implemented
+            # "completions": {},
+            # "prompts": {"listChanged": False},
+            # "resources": {"subscribe": True, "listChanged": False},
+            # "logging": {},
+        },
+    }
+
+
 def handle_call_tool(params): ...
 def handle_list_tools(params): ...
+
+
+def handle_ping(_):
+    """
+    Handles the ping request from the client.
+    https://modelcontextprotocol.io/specification/2025-03-26/basic/utilities/ping#ping
+    """
+    return {}
+
+
+def handle_complete(params):
+    raise NotImplementedError("handle_complete not implemented")
+
+
+def handle_set_level(params):
+    raise NotImplementedError("handle_set_level not implemented")
+
+
+def handle_get_prompt(params):
+    raise NotImplementedError("handle_get_prompt not implemented")
+
+
+def handle_list_prompts(params):
+    raise NotImplementedError("handle_list_prompts not implemented")
+
+
+def handle_list_resources(params):
+    raise NotImplementedError("handle_list_resources not implemented")
+
+
+def handle_list_resource_templates(params):
+    raise NotImplementedError("handle_list_resource_templates not implemented")
+
+
+def handle_read_resource(params):
+    raise NotImplementedError("handle_read_resource not implemented")
+
+
+def handle_subscribe(params):
+    raise NotImplementedError("handle_subscribe not implemented")
+
+
+def handle_unsubscribe(params):
+    raise NotImplementedError("handle_unsubscribe not implemented")
 
 
 def handle_cancelled(params): ...

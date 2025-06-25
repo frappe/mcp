@@ -1,38 +1,75 @@
 from __future__ import annotations
 
 import json
+from collections import OrderedDict
+from typing import Callable
 
 from pydantic import BaseModel, ValidationError
 from werkzeug.wrappers import Request, Response
 
 import frappe_mcp.server.handlers as handlers
-from frappe_mcp.server import types, RequestId
+import frappe_mcp.server.tools as tools
+from frappe_mcp.server import types
 
-__all__ = ["mcp_handler"]
-
-
-def mcp_handler(request: Request, response: Response) -> Response:
-    if request.method != "POST":
-        response.status_code = 405
-        return response
-
-    try:
-        data = request.get_json(force=True)
-    except json.JSONDecodeError:
-        return handle_invalid(None, response, types.PARSE_ERROR, "Parse error")
-
-    if (request_id := data.get("id")) is None:
-        return handle_invalid(
-            request_id, response, types.INVALID_REQUEST, "Invalid Request"
-        )
-
-    if "method" in data:
-        return handle_request(request_id, data, response)
-    else:
-        return handle_notification(data, response)
+__all__ = ["mcp"]
 
 
-def handle_request(request_id: RequestId, data: dict, response: Response) -> Response:
+class mcp:
+    tool_registry: OrderedDict[str, tools.Tool]
+
+    def __init__(self):
+        self.tool_registry = OrderedDict()
+
+    def handler(self, request: Request, response: Response) -> Response:
+        if request.method != "POST":
+            response.status_code = 405
+            return response
+
+        try:
+            data = request.get_json(force=True)
+        except json.JSONDecodeError:
+            return handle_invalid(None, response, types.PARSE_ERROR, "Parse error")
+
+        if (request_id := data.get("id")) is None:
+            return handle_invalid(
+                request_id, response, types.INVALID_REQUEST, "Invalid Request"
+            )
+
+        if "method" in data:
+            return handle_request(request_id, data, response)
+        else:
+            return handle_notification(data, response)
+
+    def tool(
+        self,
+        # use this as tool name instead of function name
+        name: str | None = None,
+        # use this as tool description instead of extracting from docstring
+        description: str | None = None,
+        # use this as tool's JSON schema instead of extracting from function signature and docstring
+        parameters: dict | None = None,
+        # stream: bool = False,  # stream yes or no (SSE)
+        # whitelist: list | None = None,
+        # role: str | None = None,
+    ):
+        def decorator(fn: Callable):
+            tool = tools.get_tool(
+                fn,
+                tools.ToolOptions(
+                    name=name,
+                    description=description,
+                    parameters=parameters,
+                ),
+            )
+            self.tool_registry[tool["name"]] = tool
+            return fn
+
+        return decorator
+
+
+def handle_request(
+    request_id: types.RequestId, data: dict, response: Response
+) -> Response:
     # Request
     try:
         rpc_request = types.JSONRPCRequest.model_validate(data)
@@ -48,7 +85,6 @@ def handle_request(request_id: RequestId, data: dict, response: Response) -> Res
     params = rpc_request.params or {}
 
     result = None
-    error = None
 
     match method:
         case "initialize":
@@ -78,14 +114,15 @@ def handle_request(request_id: RequestId, data: dict, response: Response) -> Res
         case "tools/list":
             result = handlers.handle_list_tools(params)
         case _:
-            error = {"code": types.METHOD_NOT_FOUND, "message": "Method not found"}
+            return handle_invalid(
+                request_id,
+                response,
+                types.METHOD_NOT_FOUND,
+                "Method not found",
+            )
 
-    if error:
-        return handle_invalid(request_id, response, error["code"], error["message"])
-
-    success_response = types.JSONRPCSuccessResponse(
-        id=request_id, result=result if result is not None else {}
-    )
+    result = {} if result is None else result
+    success_response = types.JSONRPCSuccessResponse(id=request_id, result=result)
     response.data = get_response_data(success_response)
     response.mimetype = "application/json"
     response.status_code = 200
@@ -112,12 +149,15 @@ def handle_notification(data: dict, response: Response) -> Response:
             case "notifications/roots/list_changed":
                 handlers.handle_roots_list_changed(params)
 
-    response.status_code = 204
+    response.status_code = 202  # Accepted
     return response
 
 
 def handle_invalid(
-    request_id: RequestId, response: Response, code: int, message: str
+    request_id: types.RequestId,
+    response: Response,
+    code: int,
+    message: str,
 ) -> Response:
     error_response = types.JSONRPCErrorResponse(
         id=request_id if request_id is not None else None,
