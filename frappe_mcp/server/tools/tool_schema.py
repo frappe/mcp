@@ -1,11 +1,9 @@
 import inspect
 import re
 import types
+from collections.abc import Callable
 from typing import (
     Any,
-    Callable,
-    Dict,
-    List,
     Optional,
     Union,
     get_args,
@@ -15,18 +13,18 @@ from typing import (
 
 # Mapping of Python types to JSON schema types
 _PY_TO_JSON_TYPE_MAP = {
-    int: "integer",
-    str: "string",
-    float: "number",
-    bool: "boolean",
-    type(None): "null",
+    int: 'integer',
+    str: 'string',
+    float: 'number',
+    bool: 'boolean',
+    type(None): 'null',
 }
 
 
 def _convert_py_to_json_type(py_type: Any) -> dict:
     """Convert a Python type to a JSON schema type dictionary."""
     if py_type in _PY_TO_JSON_TYPE_MAP:
-        return {"type": _PY_TO_JSON_TYPE_MAP[py_type]}
+        return {'type': _PY_TO_JSON_TYPE_MAP[py_type]}
     return {}
 
 
@@ -43,19 +41,19 @@ def _handle_union_type(py_type: Any) -> dict:
         # Handles Optional[T]
         schema = _convert_type_to_json_schema(non_none_args[0])
         # Add null type for optionality
-        if "type" in schema:
-            if isinstance(schema["type"], list):
-                if "null" not in schema["type"]:
-                    schema["type"].append("null")
+        if 'type' in schema:
+            if isinstance(schema['type'], list):
+                if 'null' not in schema['type']:
+                    schema['type'].append('null')
             else:
-                schema["type"] = [schema["type"], "null"]
+                schema['type'] = [schema['type'], 'null']
         else:
             # For complex types in Optional, wrap with anyOf
-            return {"anyOf": [_convert_type_to_json_schema(arg) for arg in args]}
+            return {'anyOf': [_convert_type_to_json_schema(arg) for arg in args]}
         return schema
 
     # Handles Union[T1, T2, ...]
-    return {"anyOf": [_convert_type_to_json_schema(arg) for arg in args]}
+    return {'anyOf': [_convert_type_to_json_schema(arg) for arg in args]}
 
 
 def _handle_list_type(py_type: Any) -> dict:
@@ -63,9 +61,9 @@ def _handle_list_type(py_type: Any) -> dict:
     args = get_args(py_type)
     if args:
         # Handles list[T]
-        return {"type": "array", "items": _convert_type_to_json_schema(args[0])}
+        return {'type': 'array', 'items': _convert_type_to_json_schema(args[0])}
     # Handles list
-    return {"type": "array"}
+    return {'type': 'array'}
 
 
 def _handle_dict_type(py_type: Any) -> dict:
@@ -74,20 +72,20 @@ def _handle_dict_type(py_type: Any) -> dict:
     if args and len(args) == 2:
         # Handles dict[K, V], assuming K is str
         return {
-            "type": "object",
-            "additionalProperties": _convert_type_to_json_schema(args[1]),
+            'type': 'object',
+            'additionalProperties': _convert_type_to_json_schema(args[1]),
         }
     # Handles dict
-    return {"type": "object"}
+    return {'type': 'object'}
 
 
 def _convert_type_to_json_schema(py_type: Any) -> dict:
     """Converts a Python type annotation to a JSON schema dictionary."""
 
     if py_type is list:
-        return {"type": "array"}
+        return {'type': 'array'}
     if py_type is dict:
-        return {"type": "object"}
+        return {'type': 'object'}
 
     # Handles simple types
     schema = _convert_py_to_json_type(py_type)
@@ -100,11 +98,11 @@ def _convert_type_to_json_schema(py_type: Any) -> dict:
         # Handles Union and Optional types
         return _handle_union_type(py_type)
 
-    if origin in (list, List):
+    if origin in (list, list):
         # Handles list types
         return _handle_list_type(py_type)
 
-    if origin in (dict, Dict):
+    if origin in (dict, dict):
         # Handles dict types
         return _handle_dict_type(py_type)
 
@@ -137,8 +135,8 @@ def get_input_schema(fn: Callable) -> dict:
     sig = inspect.signature(fn)
     parameters = sig.parameters
     input_schema = {
-        "type": "object",
-        "properties": {},
+        'type': 'object',
+        'properties': {},
     }
 
     if not parameters:
@@ -158,14 +156,14 @@ def get_input_schema(fn: Callable) -> dict:
         # Convert Python type to a JSON schema property
         prop_schema = _convert_type_to_json_schema(annotation)
 
-        input_schema["properties"][name] = prop_schema
+        input_schema['properties'][name] = prop_schema
 
         # Determine if the parameter is required
         if param.default is inspect.Parameter.empty:
             required_params.append(name)
 
     if required_params:
-        input_schema["required"] = required_params
+        input_schema['required'] = required_params
 
     return input_schema
 
@@ -185,26 +183,26 @@ def get_descriptions(desc: str) -> tuple[str, dict[str, str]]:
               names as keys.
     """
     if not desc:
-        return "", {}
+        return '', {}
 
     desc = inspect.cleandoc(desc)
 
     try:
-        description_part, args_part = re.split(r"\n\s*Args:\n", desc, 1)
+        description_part, args_part = re.split(r'\n\s*Args:\n', desc, maxsplit=1)
     except ValueError:
-        if desc.lstrip().startswith("Args:"):
-            description_part = ""
-            args_part = desc.lstrip()[len("Args:") :].lstrip()
+        if desc.lstrip().startswith('Args:'):
+            description_part = ''
+            args_part = desc.lstrip()[len('Args:') :].lstrip()
         else:
             return desc, {}
 
     arg_pattern = re.compile(
-        r"^\s*(\w+)\s*(?:\([^)]*\))?:\s*(.*?)(?=\n\s*\w+\s*(?:\(.*\))?:|\Z)",
+        r'^\s*(\w+)\s*(?:\([^)]*\))?:\s*(.*?)(?=\n\s*\w+\s*(?:\(.*\))?:|\Z)',
         re.MULTILINE | re.DOTALL,
     )
     arg_descriptions = {}
     for match in arg_pattern.finditer(args_part):
         arg_name, description = match.groups()
-        arg_descriptions[arg_name] = " ".join(description.strip().split())
+        arg_descriptions[arg_name] = ' '.join(description.strip().split())
 
     return description_part.strip(), arg_descriptions

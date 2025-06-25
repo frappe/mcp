@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Optional, Union
+from typing import Any
 
 from frappe_mcp.server.tools.tool_schema import get_descriptions, get_input_schema
 
@@ -26,7 +26,7 @@ def test_simple_function():
 def test_function_with_optional():
     """Tests a function with optional types and default values."""
 
-    def function_with_optional(a: Optional[int], b: str = "default") -> None:
+    def function_with_optional(a: int | None, b: str = "default") -> None:
         """A function with an optional type and a default value."""
         pass
 
@@ -44,7 +44,7 @@ def test_function_with_optional():
 def test_function_with_union():
     """Tests a function with Union types."""
 
-    def function_with_union(a: Union[int, str], b: Union[float, bool, None]) -> None:
+    def function_with_union(a: int | str, b: float | bool | None) -> None:
         """A function with union types."""
         pass
 
@@ -62,7 +62,7 @@ def test_function_with_union():
 def test_function_with_list():
     """Tests a function with list types."""
 
-    def function_with_list(a: list, b: List[int]) -> None:
+    def function_with_list(a: list, b: list[int]) -> None:
         """A function with list types."""
         pass
 
@@ -80,7 +80,7 @@ def test_function_with_list():
 def test_function_with_dict():
     """Tests a function with dict types."""
 
-    def function_with_dict(a: dict, b: Dict[str, int]) -> None:
+    def function_with_dict(a: dict, b: dict[str, int]) -> None:
         """A function with dict types."""
         pass
 
@@ -126,7 +126,7 @@ def test_function_no_params():
 def test_function_with_forward_ref():
     """Tests a function with forward-referenced string type hints."""
 
-    def function_with_forward_ref(a: "str", b: "Optional[int]") -> None:
+    def function_with_forward_ref(a: "str", b: "int | None") -> None:
         """A function with forward-referenced type hints."""
         pass
 
@@ -146,9 +146,9 @@ def test_complex_function():
 
     def complex_function(
         a: int,
-        b: Optional[str] = None,
-        c: Union[list, dict] = [1],
-        d: List[Union[int, str]] = [],
+        b: str | None = None,
+        c: list | dict = [1],  # noqa: B006
+        d: list[int | str] = [],  # noqa: B006
     ) -> None:
         """A complex function with a mix of types."""
         pass

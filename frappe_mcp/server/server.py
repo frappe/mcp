@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 from collections import OrderedDict
-from typing import Callable
+from collections.abc import Callable
 
 from pydantic import BaseModel, ValidationError
 from werkzeug.wrappers import Request, Response

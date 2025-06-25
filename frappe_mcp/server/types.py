@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Union
 
 from pydantic import BaseModel
 
@@ -15,26 +15,26 @@ RequestId = Union[str, int, None]
 
 class BaseRequest(BaseModel):
     method: str
-    params: Optional[Dict[str, Any]] = None
+    params: dict[str, Any] | None = None
 
 
 class JSONRPCRequest(BaseModel):
     jsonrpc: str = JSONRPC_VERSION
     id: RequestId
     method: str
-    params: Optional[Dict[str, Any]] = None
+    params: dict[str, Any] | None = None
 
 
 class JSONRPCNotification(BaseModel):
     jsonrpc: str = JSONRPC_VERSION
     method: str
-    params: Optional[Dict[str, Any]] = None
+    params: dict[str, Any] | None = None
 
 
 class Error(BaseModel):
     code: int
     message: str
-    data: Optional[Any] = None
+    data: Any | None = None
 
 
 class JSONRPCErrorResponse(BaseModel):
@@ -46,7 +46,7 @@ class JSONRPCErrorResponse(BaseModel):
 class JSONRPCSuccessResponse(BaseModel):
     jsonrpc: str = JSONRPC_VERSION
     id: RequestId
-    result: Dict[str, Any]
+    result: dict[str, Any]
 
 
 # General MCP Types from schema.ts
@@ -54,7 +54,7 @@ class JSONRPCSuccessResponse(BaseModel):
 
 class BaseMetadata(BaseModel):
     name: str
-    title: Optional[str] = None
+    title: str | None = None
 
 
 class Implementation(BaseMetadata):
@@ -63,10 +63,10 @@ class Implementation(BaseMetadata):
 
 # initialize
 class ClientCapabilities(BaseModel):
-    experimental: Optional[Dict[str, Any]] = None
-    roots: Optional[Dict[str, Any]] = None
-    sampling: Optional[Dict[str, Any]] = None
-    elicitation: Optional[Dict[str, Any]] = None
+    experimental: dict[str, Any] | None = None
+    roots: dict[str, Any] | None = None
+    sampling: dict[str, Any] | None = None
+    elicitation: dict[str, Any] | None = None
 
 
 class InitializeRequestParams(BaseModel):
@@ -76,19 +76,19 @@ class InitializeRequestParams(BaseModel):
 
 
 class ServerCapabilities(BaseModel):
-    experimental: Optional[Dict[str, Any]] = None
-    logging: Optional[Dict[str, Any]] = None
-    completions: Optional[Dict[str, Any]] = None
-    prompts: Optional[Dict[str, Any]] = None
-    resources: Optional[Dict[str, Any]] = None
-    tools: Optional[Dict[str, Any]] = None
+    experimental: dict[str, Any] | None = None
+    logging: dict[str, Any] | None = None
+    completions: dict[str, Any] | None = None
+    prompts: dict[str, Any] | None = None
+    resources: dict[str, Any] | None = None
+    tools: dict[str, Any] | None = None
 
 
 class InitializeResult(BaseModel):
     protocolVersion: str
     capabilities: ServerCapabilities
     serverInfo: Implementation
-    instructions: Optional[str] = None
+    instructions: str | None = None
 
 
 # ping - no params, empty result
@@ -111,13 +111,13 @@ class ResourceTemplateReference(BaseModel):
 
 
 class CompleteRequestParams(BaseModel):
-    ref: Union[PromptReference, ResourceTemplateReference]
-    argument: Dict[str, str]
-    context: Optional[Dict[str, Any]] = None
+    ref: PromptReference | ResourceTemplateReference
+    argument: dict[str, str]
+    context: dict[str, Any] | None = None
 
 
 class CompleteResult(BaseModel):
-    completion: Dict[str, Any]
+    completion: dict[str, Any]
 
 
 # logging/setLevel
@@ -128,47 +128,47 @@ class SetLevelRequestParams(BaseModel):
 # prompts/get
 class GetPromptRequestParams(BaseModel):
     name: str
-    arguments: Optional[Dict[str, str]] = None
+    arguments: dict[str, str] | None = None
 
 
 class TextResourceContents(BaseModel):
     uri: str
-    mimeType: Optional[str] = None
+    mimeType: str | None = None
     text: str
 
 
 class BlobResourceContents(BaseModel):
     uri: str
-    mimeType: Optional[str] = None
+    mimeType: str | None = None
     blob: str  # base64 encoded
 
 
 class Resource(BaseMetadata):
     uri: str
-    description: Optional[str] = None
-    mimeType: Optional[str] = None
-    annotations: Optional[Dict[str, Any]] = None
-    size: Optional[int] = None
+    description: str | None = None
+    mimeType: str | None = None
+    annotations: dict[str, Any] | None = None
+    size: int | None = None
 
 
 class TextContent(BaseModel):
     type: str = "text"
     text: str
-    annotations: Optional[Dict[str, Any]] = None
+    annotations: dict[str, Any] | None = None
 
 
 class ImageContent(BaseModel):
     type: str = "image"
     data: str  # base64
     mimeType: str
-    annotations: Optional[Dict[str, Any]] = None
+    annotations: dict[str, Any] | None = None
 
 
 class AudioContent(BaseModel):
     type: str = "audio"
     data: str  # base64
     mimeType: str
-    annotations: Optional[Dict[str, Any]] = None
+    annotations: dict[str, Any] | None = None
 
 
 class ResourceLink(Resource):
@@ -177,8 +177,8 @@ class ResourceLink(Resource):
 
 class EmbeddedResource(BaseModel):
     type: str = "resource"
-    resource: Union[TextResourceContents, BlobResourceContents]
-    annotations: Optional[Dict[str, Any]] = None
+    resource: TextResourceContents | BlobResourceContents
+    annotations: dict[str, Any] | None = None
 
 
 ContentBlock = Union[
@@ -192,55 +192,55 @@ class PromptMessage(BaseModel):
 
 
 class GetPromptResult(BaseModel):
-    description: Optional[str] = None
-    messages: List[PromptMessage]
+    description: str | None = None
+    messages: list[PromptMessage]
 
 
 # prompts/list
 class ListPromptsRequestParams(BaseModel):
-    cursor: Optional[str] = None
+    cursor: str | None = None
 
 
 class PromptArgument(BaseMetadata):
-    description: Optional[str] = None
-    required: Optional[bool] = None
+    description: str | None = None
+    required: bool | None = None
 
 
 class Prompt(BaseMetadata):
-    description: Optional[str] = None
-    arguments: Optional[List[PromptArgument]] = None
+    description: str | None = None
+    arguments: list[PromptArgument] | None = None
 
 
 class ListPromptsResult(BaseModel):
-    prompts: List[Prompt]
-    nextCursor: Optional[str] = None
+    prompts: list[Prompt]
+    nextCursor: str | None = None
 
 
 # resources/list
 class ListResourcesRequestParams(BaseModel):
-    cursor: Optional[str] = None
+    cursor: str | None = None
 
 
 class ListResourcesResult(BaseModel):
-    resources: List[Resource]
-    nextCursor: Optional[str] = None
+    resources: list[Resource]
+    nextCursor: str | None = None
 
 
 # resources/templates/list
 class ListResourceTemplatesRequestParams(BaseModel):
-    cursor: Optional[str] = None
+    cursor: str | None = None
 
 
 class ResourceTemplate(BaseMetadata):
     uriTemplate: str
-    description: Optional[str] = None
-    mimeType: Optional[str] = None
-    annotations: Optional[Dict[str, Any]] = None
+    description: str | None = None
+    mimeType: str | None = None
+    annotations: dict[str, Any] | None = None
 
 
 class ListResourceTemplatesResult(BaseModel):
-    resourceTemplates: List[ResourceTemplate]
-    nextCursor: Optional[str] = None
+    resourceTemplates: list[ResourceTemplate]
+    nextCursor: str | None = None
 
 
 # resources/read
@@ -249,7 +249,7 @@ class ReadResourceRequestParams(BaseModel):
 
 
 class ReadResourceResult(BaseModel):
-    contents: List[Union[TextResourceContents, BlobResourceContents]]
+    contents: list[TextResourceContents | BlobResourceContents]
 
 
 # resources/subscribe
@@ -265,51 +265,51 @@ class UnsubscribeRequestParams(BaseModel):
 # tools/call
 class CallToolRequestParams(BaseModel):
     name: str
-    arguments: Optional[Dict[str, Any]] = None
+    arguments: dict[str, Any] | None = None
 
 
 class CallToolResult(BaseModel):
-    content: List[ContentBlock]
-    structuredContent: Optional[Dict[str, Any]] = None
-    isError: Optional[bool] = None
+    content: list[ContentBlock]
+    structuredContent: dict[str, Any] | None = None
+    isError: bool | None = None
 
 
 # tools/list
 class ListToolsRequestParams(BaseModel):
-    cursor: Optional[str] = None
+    cursor: str | None = None
 
 
 class ToolAnnotations(BaseModel):
-    title: Optional[str] = None
-    readOnlyHint: Optional[bool] = None
-    destructiveHint: Optional[bool] = None
-    idempotentHint: Optional[bool] = None
-    openWorldHint: Optional[bool] = None
+    title: str | None = None
+    readOnlyHint: bool | None = None
+    destructiveHint: bool | None = None
+    idempotentHint: bool | None = None
+    openWorldHint: bool | None = None
 
 
 class Tool(BaseMetadata):
-    description: Optional[str] = None
-    inputSchema: Dict[str, Any]
-    outputSchema: Optional[Dict[str, Any]] = None
-    annotations: Optional[ToolAnnotations] = None
+    description: str | None = None
+    inputSchema: dict[str, Any]
+    outputSchema: dict[str, Any] | None = None
+    annotations: ToolAnnotations | None = None
 
 
 class ListToolsResult(BaseModel):
-    tools: List[Tool]
-    nextCursor: Optional[str] = None
+    tools: list[Tool]
+    nextCursor: str | None = None
 
 
 # Notifications
 class CancelledNotificationParams(BaseModel):
     requestId: RequestId
-    reason: Optional[str] = None
+    reason: str | None = None
 
 
 class ProgressNotificationParams(BaseModel):
-    progressToken: Union[str, int]
+    progressToken: str | int
     progress: float
-    total: Optional[float] = None
-    message: Optional[str] = None
+    total: float | None = None
+    message: str | None = None
 
 
 class InitializedNotificationParams(BaseModel):
