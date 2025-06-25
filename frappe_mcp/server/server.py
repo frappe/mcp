@@ -42,12 +42,14 @@ class mcp:
 
     def tool(
         self,
-        # use this as tool name instead of function name
+        # use this as tool name instead of the __name__ property of the function
         name: str | None = None,
-        # use this as tool description instead of extracting from docstring
+        # use this as tool description instead of extracting it from __doc__
         description: str | None = None,
         # use this as tool's JSON schema instead of extracting from function signature and docstring
-        parameters: dict | None = None,
+        input_schema: dict | None = None,
+        # passes entire docstring as description instead of extracting it from docstring
+        use_entire_docstring: bool = False,
         # stream: bool = False,  # stream yes or no (SSE)
         # whitelist: list | None = None,
         # role: str | None = None,
@@ -58,7 +60,8 @@ class mcp:
                 tools.ToolOptions(
                     name=name,
                     description=description,
-                    parameters=parameters,
+                    input_schema=input_schema,
+                    use_entire_docstring=use_entire_docstring,
                 ),
             )
             self.tool_registry[tool["name"]] = tool

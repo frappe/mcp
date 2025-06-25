@@ -1,4 +1,5 @@
 import inspect
+import re
 import types
 from typing import (
     Any,
@@ -115,7 +116,7 @@ def _convert_type_to_json_schema(py_type: Any) -> dict:
     return {}
 
 
-def get_schema(fn: Callable) -> dict:
+def get_input_schema(fn: Callable) -> dict:
     """
     Generate a JSON schema for a function's parameters.
     This function inspects the signature of `fn` and generates a JSON schema
@@ -167,3 +168,43 @@ def get_schema(fn: Callable) -> dict:
         json_schema["required"] = required_params
 
     return json_schema
+
+
+def get_descriptions(desc: str) -> tuple[str, dict[str, str]]:
+    """
+    Parses a Google-style docstring to extract the function description and
+    parameter descriptions.
+
+    Args:
+        desc (str): The docstring to parse.
+
+    Returns:
+        A tuple containing:
+            - str: The function's description.
+            - dict: A dictionary of parameter descriptions, with parameter
+              names as keys.
+    """
+    if not desc:
+        return "", {}
+
+    desc = inspect.cleandoc(desc)
+
+    try:
+        description_part, args_part = re.split(r"\n\s*Args:\n", desc, 1)
+    except ValueError:
+        if desc.lstrip().startswith("Args:"):
+            description_part = ""
+            args_part = desc.lstrip()[len("Args:") :].lstrip()
+        else:
+            return desc, {}
+
+    arg_pattern = re.compile(
+        r"^\s*(\w+)\s*(?:\([^)]*\))?:\s*(.*?)(?=\n\s*\w+\s*(?:\(.*\))?:|\Z)",
+        re.MULTILINE | re.DOTALL,
+    )
+    arg_descriptions = {}
+    for match in arg_pattern.finditer(args_part):
+        arg_name, description = match.groups()
+        arg_descriptions[arg_name] = " ".join(description.strip().split())
+
+    return description_part.strip(), arg_descriptions

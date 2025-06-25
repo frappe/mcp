@@ -1,6 +1,6 @@
 from typing import Any, Dict, List, Optional, Union
 
-from frappe_mcp.server.tools.tool_schema import get_schema
+from frappe_mcp.server.tools.tool_schema import get_descriptions, get_input_schema
 
 # Test cases for get_schema function
 
@@ -20,7 +20,7 @@ def test_simple_function():
         },
         "required": ["a", "b"],
     }
-    assert get_schema(simple_function) == expected_schema
+    assert get_input_schema(simple_function) == expected_schema
 
 
 def test_function_with_optional():
@@ -38,7 +38,7 @@ def test_function_with_optional():
         },
         "required": ["a"],
     }
-    assert get_schema(function_with_optional) == expected_schema
+    assert get_input_schema(function_with_optional) == expected_schema
 
 
 def test_function_with_union():
@@ -52,13 +52,11 @@ def test_function_with_union():
         "type": "object",
         "properties": {
             "a": {"anyOf": [{"type": "integer"}, {"type": "string"}]},
-            "b": {
-                "anyOf": [{"type": "number"}, {"type": "boolean"}, {"type": "null"}]
-            },
+            "b": {"anyOf": [{"type": "number"}, {"type": "boolean"}, {"type": "null"}]},
         },
         "required": ["a", "b"],
     }
-    assert get_schema(function_with_union) == expected_schema
+    assert get_input_schema(function_with_union) == expected_schema
 
 
 def test_function_with_list():
@@ -76,7 +74,7 @@ def test_function_with_list():
         },
         "required": ["a", "b"],
     }
-    assert get_schema(function_with_list) == expected_schema
+    assert get_input_schema(function_with_list) == expected_schema
 
 
 def test_function_with_dict():
@@ -94,7 +92,7 @@ def test_function_with_dict():
         },
         "required": ["a", "b"],
     }
-    assert get_schema(function_with_dict) == expected_schema
+    assert get_input_schema(function_with_dict) == expected_schema
 
 
 def test_function_with_any():
@@ -109,7 +107,7 @@ def test_function_with_any():
         "properties": {"a": {}},
         "required": ["a"],
     }
-    assert get_schema(function_with_any) == expected_schema
+    assert get_input_schema(function_with_any) == expected_schema
 
 
 def test_function_no_params():
@@ -119,7 +117,7 @@ def test_function_no_params():
         """A function with no parameters."""
         pass
 
-    assert get_schema(function_no_params) == {}
+    assert get_input_schema(function_no_params) == {}
 
 
 def test_function_with_forward_ref():
@@ -137,7 +135,7 @@ def test_function_with_forward_ref():
         },
         "required": ["a", "b"],
     }
-    assert get_schema(function_with_forward_ref) == expected_schema
+    assert get_input_schema(function_with_forward_ref) == expected_schema
 
 
 def test_complex_function():
@@ -165,7 +163,7 @@ def test_complex_function():
         },
         "required": ["a"],
     }
-    assert get_schema(complex_function) == expected_schema
+    assert get_input_schema(complex_function) == expected_schema
 
 
 def test_function_with_pipe_union():
@@ -182,7 +180,7 @@ def test_function_with_pipe_union():
         },
         "required": ["a"],
     }
-    assert get_schema(function_with_pipe_union) == expected_schema
+    assert get_input_schema(function_with_pipe_union) == expected_schema
 
 
 def test_function_with_pipe_optional():
@@ -199,7 +197,7 @@ def test_function_with_pipe_optional():
         },
         "required": ["a"],
     }
-    assert get_schema(function_with_pipe_optional) == expected_schema
+    assert get_input_schema(function_with_pipe_optional) == expected_schema
 
 
 def test_function_with_new_list_syntax():
@@ -216,7 +214,7 @@ def test_function_with_new_list_syntax():
         },
         "required": ["a"],
     }
-    assert get_schema(function_with_new_list_syntax) == expected_schema
+    assert get_input_schema(function_with_new_list_syntax) == expected_schema
 
 
 def test_function_with_new_dict_syntax():
@@ -233,7 +231,7 @@ def test_function_with_new_dict_syntax():
         },
         "required": ["a"],
     }
-    assert get_schema(function_with_new_dict_syntax) == expected_schema
+    assert get_input_schema(function_with_new_dict_syntax) == expected_schema
 
 
 def test_function_with_new_complex_syntax():
@@ -253,4 +251,83 @@ def test_function_with_new_complex_syntax():
         },
         "required": ["a"],
     }
-    assert get_schema(function_with_new_complex_syntax) == expected_schema
+    assert get_input_schema(function_with_new_complex_syntax) == expected_schema
+
+
+# Test cases for get_descriptions function
+
+
+def test_get_descriptions_empty_string():
+    """Tests get_descriptions with an empty string."""
+    description, args = get_descriptions("")
+    assert description == ""
+    assert args == {}
+
+
+def test_get_descriptions_no_args():
+    """Tests a docstring with only a description."""
+    docstring = "This is a simple description."
+    description, args = get_descriptions(docstring)
+    assert description == "This is a simple description."
+    assert args == {}
+
+
+def test_get_descriptions_with_args():
+    """Tests a standard docstring with an Args section."""
+    docstring = """
+    A function with a description.
+
+    Args:
+        param1: The first parameter.
+        param2: The second parameter.
+    """
+    description, args = get_descriptions(docstring)
+    assert description == "A function with a description."
+    assert args == {
+        "param1": "The first parameter.",
+        "param2": "The second parameter.",
+    }
+
+
+def test_get_descriptions_with_types_in_args():
+    """Tests a docstring where args have types."""
+    docstring = """
+    Another function.
+
+    Args:
+        param1 (str): The first parameter.
+        param2 (int, optional): The second parameter.
+    """
+    description, args = get_descriptions(docstring)
+    assert description == "Another function."
+    assert args == {
+        "param1": "The first parameter.",
+        "param2": "The second parameter.",
+    }
+
+
+def test_get_descriptions_multiline_arg_description():
+    """Tests an arg with a multiline description."""
+    docstring = """
+    A function.
+    That has a multiline description.
+
+    Args:
+        param1: A parameter with a very long
+            description that spans multiple
+            lines.
+    """
+    description, args = get_descriptions(docstring)
+    assert description == "A function.\nThat has a multiline description."
+    assert args == {
+        "param1": "A parameter with a very long description that spans multiple lines."
+    }
+
+
+def test_get_descriptions_no_description_part():
+    """Tests a docstring that starts with Args."""
+    docstring = """Args:
+        param1: The first parameter."""
+    description, args = get_descriptions(docstring)
+    assert description == ""
+    assert args == {"param1": "The first parameter."}
