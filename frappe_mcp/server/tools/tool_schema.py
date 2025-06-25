@@ -136,11 +136,14 @@ def get_input_schema(fn: Callable) -> dict:
 
     sig = inspect.signature(fn)
     parameters = sig.parameters
+    input_schema = {
+        "type": "object",
+        "properties": {},
+    }
 
     if not parameters:
-        return {}
+        return input_schema
 
-    schema_properties = {}
     required_params = []
 
     for name, param in parameters.items():
@@ -155,16 +158,11 @@ def get_input_schema(fn: Callable) -> dict:
         # Convert Python type to a JSON schema property
         prop_schema = _convert_type_to_json_schema(annotation)
 
-        schema_properties[name] = prop_schema
+        input_schema["properties"][name] = prop_schema
 
         # Determine if the parameter is required
         if param.default is inspect.Parameter.empty:
             required_params.append(name)
-
-    input_schema = {
-        "type": "object",
-        "properties": schema_properties,
-    }
 
     if required_params:
         input_schema["required"] = required_params

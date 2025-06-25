@@ -2,11 +2,12 @@ from __future__ import annotations
 
 from inspect import getdoc
 from typing import Any, Callable, TypedDict
+
 from jsonschema import validate
 
 from frappe_mcp.server.tools.tool_schema import get_descriptions, get_input_schema
 
-__all__ = ["Tool", "ToolOptions", "get_tool", "run_tool"]
+__all__ = ["Tool", "ToolOptions", "ToolAnnotations", "get_tool", "run_tool"]
 
 
 class Tool(TypedDict):
@@ -52,7 +53,7 @@ def get_tool(fn: Callable, options: ToolOptions | None = None):
         description = _description
 
     _input_schema = get_input_schema(fn)
-    for schema_key, schema_value in _input_schema.items():
+    for schema_key, schema_value in _input_schema["properties"].items():
         if schema_key not in args:
             continue
         schema_value["description"] = args[schema_key]

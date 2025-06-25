@@ -117,7 +117,10 @@ def test_function_no_params():
         """A function with no parameters."""
         pass
 
-    assert get_input_schema(function_no_params) == {}
+    assert get_input_schema(function_no_params) == {
+        "type": "object",
+        "properties": {},
+    }
 
 
 def test_function_with_forward_ref():
