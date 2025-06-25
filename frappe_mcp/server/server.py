@@ -42,6 +42,7 @@ class mcp:
 
     def tool(
         self,
+        *,
         # use this as tool name instead of the __name__ property of the function
         name: str | None = None,
         # use this as tool description instead of extracting it from __doc__
@@ -50,6 +51,9 @@ class mcp:
         input_schema: dict | None = None,
         # passes entire docstring as description instead of extracting it from docstring
         use_entire_docstring: bool = False,
+        # use this to pass additional context about the tool
+        # https://modelcontextprotocol.io/docs/concepts/tools#tool-annotations
+        annotations: tools.ToolAnnotations | None = None,
         # stream: bool = False,  # stream yes or no (SSE)
         # whitelist: list | None = None,
         # role: str | None = None,
@@ -62,6 +66,7 @@ class mcp:
                     description=description,
                     input_schema=input_schema,
                     use_entire_docstring=use_entire_docstring,
+                    annotations=annotations,
                 ),
             )
             self.tool_registry[tool["name"]] = tool

@@ -124,6 +124,8 @@ def get_input_schema(fn: Callable) -> dict:
     required.
     It supports standard Python types, as well as `Optional`, `Union`, `list`,
     and `dict` from the `typing` module.
+
+    Example output:
     """
     try:
         # Resolve forward-referenced type hints
@@ -159,15 +161,15 @@ def get_input_schema(fn: Callable) -> dict:
         if param.default is inspect.Parameter.empty:
             required_params.append(name)
 
-    json_schema = {
+    input_schema = {
         "type": "object",
         "properties": schema_properties,
     }
 
     if required_params:
-        json_schema["required"] = required_params
+        input_schema["required"] = required_params
 
-    return json_schema
+    return input_schema
 
 
 def get_descriptions(desc: str) -> tuple[str, dict[str, str]]:

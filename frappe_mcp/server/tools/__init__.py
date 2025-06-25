@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from inspect import getdoc
 from typing import Any, Callable, TypedDict
+from jsonschema import validate
 
 from frappe_mcp.server.tools.tool_schema import get_descriptions, get_input_schema
 
@@ -12,14 +13,24 @@ class Tool(TypedDict):
     name: str
     description: str
     input_schema: dict[str, Any]
+    annotations: ToolAnnotations | None
     fn: Callable
 
 
-class ToolOptions(TypedDict):
+class ToolAnnotations(TypedDict, total=False):
+    title: str | None
+    readOnlyHint: bool | None
+    destructiveHint: bool | None
+    idempotentHint: bool | None
+    openWorldHint: bool | None
+
+
+class ToolOptions(TypedDict, total=False):
     name: str | None
     description: str | None
     input_schema: dict | None
     use_entire_docstring: bool
+    annotations: ToolAnnotations | None
 
 
 def get_tool(fn: Callable, options: ToolOptions | None = None):
@@ -29,6 +40,7 @@ def get_tool(fn: Callable, options: ToolOptions | None = None):
             description=None,
             input_schema=None,
             use_entire_docstring=False,
+            annotations=None,
         )
 
     name = options.get("name") or fn.__name__
@@ -47,14 +59,17 @@ def get_tool(fn: Callable, options: ToolOptions | None = None):
     input_schema = input_schema or _input_schema
 
     tool = Tool(
+        fn=fn,
         name=name,
         description=description,
         input_schema=input_schema,
-        fn=fn,
+        annotations=options.get("annotations"),
     )
     return tool
 
 
 def run_tool(tool: Tool, arguments: dict[str, Any]):
-    # tool.fn(**arguments)
-    ...
+    validate(instance=arguments, schema=tool["input_schema"])
+    properties = tool["input_schema"]["properties"]
+    tool_args = {key: arguments[key] for key in arguments if key in properties}
+    return tool["fn"](**tool_args)
