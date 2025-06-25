@@ -11,7 +11,7 @@ import frappe_mcp.server.handlers as handlers
 import frappe_mcp.server.tools as tools
 from frappe_mcp.server import types
 
-__all__ = ["MCP"]
+__all__ = ['MCP']
 
 
 class MCP:
@@ -27,28 +27,28 @@ class MCP:
         ...
         pass
 
-    def _handler(self, request: Request, response: Response) -> Response:
-        if request.method != "POST":
+    def handle(self, request: Request, response: Response) -> Response:
+        if request.method != 'POST':
             response.status_code = 405
             return response
 
         try:
             data = request.get_json(force=True)
         except json.JSONDecodeError:
-            return handle_invalid(None, response, types.PARSE_ERROR, "Parse error")
+            return handle_invalid(None, response, types.PARSE_ERROR, 'Parse error')
 
         if get_is_notification(data):
             return handle_notification(data, response)
 
-        if (request_id := data.get("id")) is None:
+        if (request_id := data.get('id')) is None:
             return handle_invalid(
                 request_id,
                 response,
                 types.INVALID_REQUEST,
-                "Invalid Request",
+                'Invalid Request',
             )
 
-        return self.handle_request(request_id, data, response)
+        return self._handle_request(request_id, data, response)
 
     def tool(
         self,
@@ -79,12 +79,12 @@ class MCP:
                     annotations=annotations,
                 ),
             )
-            self.tool_registry[tool["name"]] = tool
+            self.tool_registry[tool['name']] = tool
             return fn
 
         return decorator
 
-    def handle_request(
+    def _handle_request(
         self,
         request_id: types.RequestId,
         data: dict,
@@ -98,7 +98,7 @@ class MCP:
                 request_id,
                 response,
                 types.INVALID_PARAMS,
-                f"Invalid params: {e}",
+                f'Invalid params: {e}',
             )
 
         method = rpc_request.method
@@ -107,44 +107,44 @@ class MCP:
         result = None
 
         match method:
-            case "initialize":
+            case 'initialize':
                 result = handlers.handle_initialize(params)
-            case "ping":
+            case 'ping':
                 result = handlers.handle_ping(params)
-            case "completion/complete":
+            case 'completion/complete':
                 result = handlers.handle_complete(params)
-            case "logging/setLevel":
+            case 'logging/setLevel':
                 result = handlers.handle_set_level(params)
-            case "prompts/get":
+            case 'prompts/get':
                 result = handlers.handle_get_prompt(params)
-            case "prompts/list":
+            case 'prompts/list':
                 result = handlers.handle_list_prompts(params)
-            case "resources/list":
+            case 'resources/list':
                 result = handlers.handle_list_resources(params)
-            case "resources/templates/list":
+            case 'resources/templates/list':
                 result = handlers.handle_list_resource_templates(params)
-            case "resources/read":
+            case 'resources/read':
                 result = handlers.handle_read_resource(params)
-            case "resources/subscribe":
+            case 'resources/subscribe':
                 result = handlers.handle_subscribe(params)
-            case "resources/unsubscribe":
+            case 'resources/unsubscribe':
                 result = handlers.handle_unsubscribe(params)
-            case "tools/call":
+            case 'tools/call':
                 result = tools.handle_call_tool(params, self.tool_registry)
-            case "tools/list":
+            case 'tools/list':
                 result = tools.handle_list_tools(params, self.tool_registry)
             case _:
                 return handle_invalid(
                     request_id,
                     response,
                     types.METHOD_NOT_FOUND,
-                    "Method not found",
+                    'Method not found',
                 )
 
         result = {} if result is None else result
         success_response = types.JSONRPCSuccessResponse(id=request_id, result=result)
         response.data = get_response_data(success_response)
-        response.mimetype = "application/json"
+        response.mimetype = 'application/json'
         response.status_code = 200
         return response
 
@@ -160,13 +160,13 @@ def handle_notification(data: dict, response: Response) -> Response:
         method = rpc_notification.method
         params = rpc_notification.params or {}
         match method:
-            case "notifications/cancelled":
+            case 'notifications/cancelled':
                 handlers.handle_cancelled(params)
-            case "notifications/progress":
+            case 'notifications/progress':
                 handlers.handle_progress(params)
-            case "notifications/initialized":
+            case 'notifications/initialized':
                 handlers.handle_initialized(params)
-            case "notifications/roots/list_changed":
+            case 'notifications/roots/list_changed':
                 handlers.handle_roots_list_changed(params)
 
     response.status_code = 202  # Accepted
@@ -184,7 +184,7 @@ def handle_invalid(
         error=types.Error(code=code, message=message),
     )
     response.data = get_response_data(error_response)
-    response.mimetype = "application/json"
+    response.mimetype = 'application/json'
     response.status_code = 400
     return response
 
@@ -194,5 +194,5 @@ def get_response_data(model: BaseModel):
 
 
 def get_is_notification(data: dict) -> bool:
-    method = data.get("method", "")
-    return isinstance(method, str) and method.startswith("notifications/")
+    method = data.get('method', '')
+    return isinstance(method, str) and method.startswith('notifications/')

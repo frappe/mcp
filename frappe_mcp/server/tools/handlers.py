@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import json
 from collections import OrderedDict
+from typing import Any
 
 from pydantic import ValidationError
 
@@ -24,7 +26,7 @@ def handle_call_tool(params, tool_registry: OrderedDict[str, tools.Tool]):
         return result.model_dump(exclude_none=True, by_alias=True)
 
     tool_info = tool_registry[tool_name]
-    fn = tool_info.get("fn")
+    fn = tool_info.get('fn')
 
     if not fn:
         error_content = types.TextContent(
@@ -34,25 +36,34 @@ def handle_call_tool(params, tool_registry: OrderedDict[str, tools.Tool]):
         return result.model_dump(exclude_none=True, by_alias=True)
 
     try:
-        # Assuming the tool function returns a string or a dict.
-        # A more robust implementation would handle different return types.
-        tool_result = fn(**arguments)
-
-        if isinstance(tool_result, dict):
-            content = types.TextContent(text=str(tool_result))
-            structured_content = tool_result
-            result = types.CallToolResult(
-                content=[content], structuredContent=structured_content, isError=False
-            )
-        else:
-            content = types.TextContent(text=str(tool_result))
-            result = types.CallToolResult(content=[content], isError=False)
-
-        return result.model_dump(exclude_none=True, by_alias=True)
+        return _get_result(fn, arguments)
     except Exception as e:
         error_content = types.TextContent(text=f"Error calling tool '{tool_name}': {e}")
         result = types.CallToolResult(content=[error_content], isError=True)
         return result.model_dump(exclude_none=True, by_alias=True)
+
+
+def _get_result(fn, arguments):
+    # TODO: check if tool_result is list of content blocks, if so, return it as is
+
+    tool_result = fn(**arguments)
+    content = types.TextContent(text='')
+    if isinstance(tool_result, str):
+        content.text = tool_result
+
+    structured = None
+    try:
+        content.text = content.text or json.dumps(tool_result)
+        if isinstance(tool_result, dict):
+            structured = tool_result
+    except Exception:
+        content.text = content.text or str(tool_result)
+
+    result = types.CallToolResult(
+        content=[content], structuredContent=structured, isError=False
+    )
+
+    return result.model_dump(exclude_none=True, by_alias=True)
 
 
 def handle_list_tools(params, tool_registry: OrderedDict[str, tools.Tool]):
@@ -74,20 +85,27 @@ def handle_list_tools(params, tool_registry: OrderedDict[str, tools.Tool]):
 
 def get_validated_tool(tool: tools.Tool):
     t = {
-        "name": tool.get("name"),
-        "description": tool.get("description"),
-        "inputSchema": tool.get("input_schema"),
-        "outputSchema": tool.get("output_schema"),
-        "annotations": tool.get("annotations"),
+        'name': tool.get('name'),
+        'description': tool.get('description'),
+        'inputSchema': tool.get('input_schema'),
+        'outputSchema': tool.get('output_schema'),
+        'annotations': tool.get('annotations'),
     }
 
-    if t["outputSchema"] is None:
-        del t["outputSchema"]
-    if t["annotations"] is None:
-        del t["annotations"]
+    if t['outputSchema'] is None:
+        del t['outputSchema']
+    if t['annotations'] is None:
+        del t['annotations']
 
     try:
         return types.Tool.model_validate(t)
     except ValidationError as e:
         print(e)
     return None
+
+
+def safe_dumps(data: Any) -> str:
+    try:
+        return json.dumps(data)
+    except Exception:
+        return str(data)
