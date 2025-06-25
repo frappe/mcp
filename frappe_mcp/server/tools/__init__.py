@@ -5,8 +5,8 @@ from typing import Any, Callable, TypedDict
 
 from jsonschema import validate
 
-from frappe_mcp.server.tools.tool_schema import get_descriptions, get_input_schema
 from frappe_mcp.server.tools.handlers import handle_call_tool, handle_list_tools
+from frappe_mcp.server.tools.tool_schema import get_descriptions, get_input_schema
 
 __all__ = [
     "Tool",
@@ -23,6 +23,7 @@ class Tool(TypedDict):
     name: str
     description: str
     input_schema: dict[str, Any]
+    output_schema: dict[str, Any] | None
     annotations: ToolAnnotations | None
     fn: Callable
 
@@ -73,6 +74,7 @@ def get_tool(fn: Callable, options: ToolOptions | None = None):
         name=name,
         description=description,
         input_schema=input_schema,
+        output_schema=None,
         annotations=options.get("annotations"),
     )
     return tool

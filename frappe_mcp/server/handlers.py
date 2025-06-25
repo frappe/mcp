@@ -6,7 +6,8 @@ def handle_initialize(params):
     Handles the initialize request from the client.
     """
     return {
-        "protocolVersion": "2025-06-18",
+        "protocolVersion": "2025-03-26",
+        # "protocolVersion": "2024-11-05",
         "serverInfo": {"name": "frappe-mcp", "version": "0.1.0"},
         "capabilities": {
             "tools": {"listChanged": False},

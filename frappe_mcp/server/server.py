@@ -37,15 +37,18 @@ class MCP:
         except json.JSONDecodeError:
             return handle_invalid(None, response, types.PARSE_ERROR, "Parse error")
 
+        if get_is_notification(data):
+            return handle_notification(data, response)
+
         if (request_id := data.get("id")) is None:
             return handle_invalid(
-                request_id, response, types.INVALID_REQUEST, "Invalid Request"
+                request_id,
+                response,
+                types.INVALID_REQUEST,
+                "Invalid Request",
             )
 
-        if "method" in data:
-            return self.handle_request(request_id, data, response)
-        else:
-            return handle_notification(data, response)
+        return self.handle_request(request_id, data, response)
 
     def tool(
         self,
@@ -188,3 +191,8 @@ def handle_invalid(
 
 def get_response_data(model: BaseModel):
     return model.model_dump_json(exclude_none=True, by_alias=True)
+
+
+def get_is_notification(data: dict) -> bool:
+    method = data.get("method", "")
+    return isinstance(method, str) and method.startswith("notifications/")

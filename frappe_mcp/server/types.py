@@ -1,6 +1,6 @@
 from typing import Any, Dict, List, Optional, Union
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 PARSE_ERROR = -32700
 INVALID_REQUEST = -32600
@@ -135,14 +135,12 @@ class TextResourceContents(BaseModel):
     uri: str
     mimeType: Optional[str] = None
     text: str
-    _meta: Optional[Dict[str, Any]] = Field(None, alias="_meta")
 
 
 class BlobResourceContents(BaseModel):
     uri: str
     mimeType: Optional[str] = None
     blob: str  # base64 encoded
-    _meta: Optional[Dict[str, Any]] = Field(None, alias="_meta")
 
 
 class Resource(BaseMetadata):
@@ -151,14 +149,12 @@ class Resource(BaseMetadata):
     mimeType: Optional[str] = None
     annotations: Optional[Dict[str, Any]] = None
     size: Optional[int] = None
-    _meta: Optional[Dict[str, Any]] = Field(None, alias="_meta")
 
 
 class TextContent(BaseModel):
     type: str = "text"
     text: str
     annotations: Optional[Dict[str, Any]] = None
-    _meta: Optional[Dict[str, Any]] = Field(None, alias="_meta")
 
 
 class ImageContent(BaseModel):
@@ -166,7 +162,6 @@ class ImageContent(BaseModel):
     data: str  # base64
     mimeType: str
     annotations: Optional[Dict[str, Any]] = None
-    _meta: Optional[Dict[str, Any]] = Field(None, alias="_meta")
 
 
 class AudioContent(BaseModel):
@@ -174,7 +169,6 @@ class AudioContent(BaseModel):
     data: str  # base64
     mimeType: str
     annotations: Optional[Dict[str, Any]] = None
-    _meta: Optional[Dict[str, Any]] = Field(None, alias="_meta")
 
 
 class ResourceLink(Resource):
@@ -185,7 +179,6 @@ class EmbeddedResource(BaseModel):
     type: str = "resource"
     resource: Union[TextResourceContents, BlobResourceContents]
     annotations: Optional[Dict[str, Any]] = None
-    _meta: Optional[Dict[str, Any]] = Field(None, alias="_meta")
 
 
 ContentBlock = Union[
@@ -216,7 +209,6 @@ class PromptArgument(BaseMetadata):
 class Prompt(BaseMetadata):
     description: Optional[str] = None
     arguments: Optional[List[PromptArgument]] = None
-    _meta: Optional[Dict[str, Any]] = Field(None, alias="_meta")
 
 
 class ListPromptsResult(BaseModel):
@@ -244,7 +236,6 @@ class ResourceTemplate(BaseMetadata):
     description: Optional[str] = None
     mimeType: Optional[str] = None
     annotations: Optional[Dict[str, Any]] = None
-    _meta: Optional[Dict[str, Any]] = Field(None, alias="_meta")
 
 
 class ListResourceTemplatesResult(BaseModel):
@@ -301,7 +292,6 @@ class Tool(BaseMetadata):
     inputSchema: Dict[str, Any]
     outputSchema: Optional[Dict[str, Any]] = None
     annotations: Optional[ToolAnnotations] = None
-    _meta: Optional[Dict[str, Any]] = Field(None, alias="_meta")
 
 
 class ListToolsResult(BaseModel):
