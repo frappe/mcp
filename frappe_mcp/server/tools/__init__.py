@@ -6,8 +6,17 @@ from typing import Any, Callable, TypedDict
 from jsonschema import validate
 
 from frappe_mcp.server.tools.tool_schema import get_descriptions, get_input_schema
+from frappe_mcp.server.tools.handlers import handle_call_tool, handle_list_tools
 
-__all__ = ["Tool", "ToolOptions", "ToolAnnotations", "get_tool", "run_tool"]
+__all__ = [
+    "Tool",
+    "ToolOptions",
+    "ToolAnnotations",
+    "get_tool",
+    "run_tool",
+    "handle_call_tool",
+    "handle_list_tools",
+]
 
 
 class Tool(TypedDict):

@@ -11,16 +11,23 @@ import frappe_mcp.server.handlers as handlers
 import frappe_mcp.server.tools as tools
 from frappe_mcp.server import types
 
-__all__ = ["mcp"]
+__all__ = ["MCP"]
 
 
-class mcp:
+class MCP:
     tool_registry: OrderedDict[str, tools.Tool]
 
     def __init__(self):
         self.tool_registry = OrderedDict()
 
-    def handler(self, request: Request, response: Response) -> Response:
+    def handler(self):
+        # Decorator for method that defines the handler path
+        # inside the handler function all the files where tools are defined
+        # should be imported, else not all all tools will be registered
+        ...
+        pass
+
+    def _handler(self, request: Request, response: Response) -> Response:
         if request.method != "POST":
             response.status_code = 405
             return response
@@ -36,7 +43,7 @@ class mcp:
             )
 
         if "method" in data:
-            return handle_request(request_id, data, response)
+            return self.handle_request(request_id, data, response)
         else:
             return handle_notification(data, response)
 
@@ -74,67 +81,69 @@ class mcp:
 
         return decorator
 
-
-def handle_request(
-    request_id: types.RequestId, data: dict, response: Response
-) -> Response:
-    # Request
-    try:
-        rpc_request = types.JSONRPCRequest.model_validate(data)
-    except ValidationError as e:
-        return handle_invalid(
-            request_id,
-            response,
-            types.INVALID_PARAMS,
-            f"Invalid params: {e}",
-        )
-
-    method = rpc_request.method
-    params = rpc_request.params or {}
-
-    result = None
-
-    match method:
-        case "initialize":
-            result = handlers.handle_initialize(params)
-        case "ping":
-            result = handlers.handle_ping(params)
-        case "completion/complete":
-            result = handlers.handle_complete(params)
-        case "logging/setLevel":
-            result = handlers.handle_set_level(params)
-        case "prompts/get":
-            result = handlers.handle_get_prompt(params)
-        case "prompts/list":
-            result = handlers.handle_list_prompts(params)
-        case "resources/list":
-            result = handlers.handle_list_resources(params)
-        case "resources/templates/list":
-            result = handlers.handle_list_resource_templates(params)
-        case "resources/read":
-            result = handlers.handle_read_resource(params)
-        case "resources/subscribe":
-            result = handlers.handle_subscribe(params)
-        case "resources/unsubscribe":
-            result = handlers.handle_unsubscribe(params)
-        case "tools/call":
-            result = handlers.handle_call_tool(params)
-        case "tools/list":
-            result = handlers.handle_list_tools(params)
-        case _:
+    def handle_request(
+        self,
+        request_id: types.RequestId,
+        data: dict,
+        response: Response,
+    ) -> Response:
+        # Request
+        try:
+            rpc_request = types.JSONRPCRequest.model_validate(data)
+        except ValidationError as e:
             return handle_invalid(
                 request_id,
                 response,
-                types.METHOD_NOT_FOUND,
-                "Method not found",
+                types.INVALID_PARAMS,
+                f"Invalid params: {e}",
             )
 
-    result = {} if result is None else result
-    success_response = types.JSONRPCSuccessResponse(id=request_id, result=result)
-    response.data = get_response_data(success_response)
-    response.mimetype = "application/json"
-    response.status_code = 200
-    return response
+        method = rpc_request.method
+        params = rpc_request.params or {}
+
+        result = None
+
+        match method:
+            case "initialize":
+                result = handlers.handle_initialize(params)
+            case "ping":
+                result = handlers.handle_ping(params)
+            case "completion/complete":
+                result = handlers.handle_complete(params)
+            case "logging/setLevel":
+                result = handlers.handle_set_level(params)
+            case "prompts/get":
+                result = handlers.handle_get_prompt(params)
+            case "prompts/list":
+                result = handlers.handle_list_prompts(params)
+            case "resources/list":
+                result = handlers.handle_list_resources(params)
+            case "resources/templates/list":
+                result = handlers.handle_list_resource_templates(params)
+            case "resources/read":
+                result = handlers.handle_read_resource(params)
+            case "resources/subscribe":
+                result = handlers.handle_subscribe(params)
+            case "resources/unsubscribe":
+                result = handlers.handle_unsubscribe(params)
+            case "tools/call":
+                result = tools.handle_call_tool(params, self.tool_registry)
+            case "tools/list":
+                result = tools.handle_list_tools(params, self.tool_registry)
+            case _:
+                return handle_invalid(
+                    request_id,
+                    response,
+                    types.METHOD_NOT_FOUND,
+                    "Method not found",
+                )
+
+        result = {} if result is None else result
+        success_response = types.JSONRPCSuccessResponse(id=request_id, result=result)
+        response.data = get_response_data(success_response)
+        response.mimetype = "application/json"
+        response.status_code = 200
+        return response
 
 
 def handle_notification(data: dict, response: Response) -> Response:

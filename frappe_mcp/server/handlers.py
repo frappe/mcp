@@ -1,3 +1,6 @@
+from __future__ import annotations
+
+
 def handle_initialize(params):
     """
     Handles the initialize request from the client.
@@ -14,10 +17,6 @@ def handle_initialize(params):
             # "logging": {},
         },
     }
-
-
-def handle_call_tool(params): ...
-def handle_list_tools(params): ...
 
 
 def handle_ping(_):
