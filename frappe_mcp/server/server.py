@@ -16,16 +16,47 @@ __all__ = ['MCP']
 
 class MCP:
     tool_registry: OrderedDict[str, tools.Tool]
+    mcp_entry_fn: Callable | None
 
     def __init__(self):
         self.tool_registry = OrderedDict()
 
-    def handler(self):
-        # Decorator for method that defines the handler path
-        # inside the handler function all the files where tools are defined
-        # should be imported, else not all all tools will be registered
-        ...
-        pass
+    def handler(self, allow_guest: bool = False):
+        from werkzeug import Response
+
+        try:
+            import frappe
+        except ImportError as e:
+            raise Exception(
+                'mcp.handler can be used only in a Frappe app.\n'
+                'If you are using it in some other Werkzeug based server\n'
+                'you should use the mcp.handle function instead.'
+            ) from e
+
+        whitelister = frappe.whitelist(
+            allow_guest=allow_guest,
+            xss_safe=False,
+            methods=['GET', 'POST'],
+        )
+
+        def decorator(fn):
+            fn_whitelisted = whitelister(fn)
+            self.mcp_entry_fn = fn
+
+            def wrapper(*args, **kwargs):
+                # Runs wrapped dummy mcp handler before handling the request.
+                # This should import all the files with the registered mcp
+                # functions.
+                fn_whitelisted(*args, **kwargs)
+
+                request = frappe.request
+                response = Response()
+
+                return self.handle(request, response)
+
+            return wrapper
+
+        return decorator
 
     def handle(self, request: Request, response: Response) -> Response:
         if request.method != 'POST':
