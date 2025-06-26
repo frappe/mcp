@@ -35,19 +35,23 @@ def check(app: str | None = None, verbose: bool = False):
             click.echo(
                 f'Found [{click.style(", ".join(apps), bold=True)}] that may be using {click.style("frappe_mcp", "blue")}'
             )
+            print()
     else:
         apps = [app]
 
     if not apps:
         click.secho('No apps found using frappe_mcp', fg='yellow')
 
-    for app in apps:
+    for i, app in enumerate(apps):
         handlers = utils.find_mcp_handlers_in_app(app)
         if not handlers:
             click.echo(f'No MCP handler found for {click.style(app, bold=True)}')
             continue
 
         utils.check(app, handlers, verbose)
+
+        if i < len(apps) - 1:
+            print()
 
 
 def get_version():
