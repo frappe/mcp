@@ -19,14 +19,13 @@ class MCP:
     _tool_registry: OrderedDict[str, tools.Tool]
     _mcp_entry_fn: Callable | None
 
-    def __init__(self):
+    def __init__(self, name: str | None):
         self._tool_registry = OrderedDict()
-        self._name = None
+        self._name = name
         self._mcp_entry_fn = None
 
     def register(
         self,
-        name: str | None = None,
         *,
         allow_guest: bool = False,
         xss_safe: bool = False,
@@ -42,7 +41,6 @@ class MCP:
                 'you should use the mcp.handle function instead.'
             ) from e
 
-        self._name = name
         whitelister = frappe.whitelist(
             allow_guest=allow_guest,
             xss_safe=xss_safe,
@@ -96,21 +94,38 @@ class MCP:
     def tool(
         self,
         *,
-        # use this as tool name instead of the __name__ property of the function
         name: str | None = None,
-        # use this as tool description instead of extracting it from __doc__
         description: str | None = None,
-        # use this as tool's JSON schema instead of extracting from function signature and docstring
         input_schema: dict | None = None,
-        # passes entire docstring as description instead of extracting it from docstring
         use_entire_docstring: bool = False,
-        # use this to pass additional context about the tool
-        # https://modelcontextprotocol.io/docs/concepts/tools#tool-annotations
         annotations: tools.ToolAnnotations | None = None,
         # stream: bool = False,  # stream yes or no (SSE)
         # whitelist: list | None = None,
         # role: str | None = None,
     ):
+        """A decorator that registers a function as a tool that can be used by the AI.
+
+        This decorator can be used to expose functions to the AI model, allowing it to call them
+        to perform actions. The decorator can be used with or without arguments.
+
+        Example:
+            >>> @mcp.tool
+            ... def get_current_weather(location: str, unit: str = "celsius"):
+            ...     '''Get the current weather in a given location.'''
+            ...     # ... implementation ...
+
+        Args:
+            name: The name of the tool. If not provided, the function's ``__name__`` will be used.
+            description: A description of what the tool does. If not provided, it will be
+                extracted from the function's docstring.
+            input_schema: The JSON schema for the tool's input. If not provided, it will be
+                inferred from the function's signature and docstring.
+            use_entire_docstring: If True, the entire docstring will be used as the tool's
+                description. Otherwise, only the first line is used.
+            annotations: Additional context about the tool, such as validation information
+                or examples of how to use it.
+        """
+
         def decorator(fn: Callable):
             tool = tools.get_tool(
                 fn,
