@@ -194,7 +194,6 @@ def get_current_weather(location: str, unit: str = "celsius"):
     # ... implementation ...
 ```
 
-
 #### `mcp.add_tool` method
 
 The `mcp.add_tool` method allows for manuall defining a tool, serving as an alternative to the `@mcp.tool` decorator.
@@ -241,7 +240,6 @@ class ToolAnnotations(TypedDict, total=False):
     openWorldHint: bool | None
 ```
 
-
 #### Tool Definition
 
 The `Tool` object that is used when manually defining and registering a tool
@@ -256,6 +254,48 @@ class Tool(TypedDict):
     annotations: ToolAnnotations | None
     fn: Callable
 ```
+
+#### Input Schema
+
+Input schema refers to the [JSON Schema](https://json-schema.org/understanding-json-schema/reference/type) definition that describes a tools parameters.
+
+The following tool:
+
+```python
+@mcp.tool()
+def tool_name(a: int, b: str = "default"):
+    """Description of what the tool does
+
+    Args:
+        a: Description for arg `a`.
+        b: Description for arg `b`.
+    """
+    ... # tool body
+
+    return value
+```
+
+will have this input schema:
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "a": {
+      "type": "integer",
+      "description": "Description for arg `a`."
+    },
+    "b": {
+      "type": "string",
+      "description": "Description for arg `b`."
+    }
+  },
+  "required": ["a"]
+}
+```
+
+This input schema is generated from the tool body automatically when using the
+decorator.
 
 ### MCP
 
