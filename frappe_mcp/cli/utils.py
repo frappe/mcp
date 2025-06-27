@@ -21,25 +21,25 @@ def check(app: str, handlers: list[tuple[Path, MCP]], verbose: bool = False):
     click.secho(app + ':', bold=True)
     for p, m in handlers:
         path = get_app_relative_path(app, p)
-        if m.mcp_entry_fn is None:
+        if m._mcp_entry_fn is None:
             click.echo(f'{dim_bullet} handler not properly registered: {path} {red_x}')
             continue
 
-        mcp_url = get_mcp_url(m.mcp_entry_fn)
+        mcp_url = get_mcp_url(m._mcp_entry_fn)
         click.echo(
-            f'{dim_bullet} handler: {click.style(m.mcp_entry_fn.__name__, fg="cyan")} {green_check}'
+            f'{dim_bullet} handler: {click.style(m._mcp_entry_fn.__name__, fg="cyan")} {green_check}'
         )
         click.echo(f'{dim_bullet} url: {mcp_url} {green_check}')
 
         try:
-            m.mcp_entry_fn()
+            m._mcp_entry_fn()
             click.echo(f'{dim_bullet} handler called {green_check}')
 
         except Exception as e:
             click.echo(f'{dim_bullet} handler error: {e} {red_x}')
             continue
 
-        for name, tool in m.tool_registry.items():
+        for name, tool in m._tool_registry.items():
             all_good = True
             click.echo(f'{dim_bullet} tool {click.style(name, bold=True)}:', nl=verbose)
 

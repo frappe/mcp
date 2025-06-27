@@ -15,46 +15,58 @@ __all__ = ['MCP']
 
 
 class MCP:
-    tool_registry: OrderedDict[str, tools.Tool]
-    mcp_entry_fn: Callable | None
+    _name: str | None
+    _tool_registry: OrderedDict[str, tools.Tool]
+    _mcp_entry_fn: Callable | None
 
     def __init__(self):
-        self.tool_registry = OrderedDict()
+        self._tool_registry = OrderedDict()
+        self._name = None
+        self._mcp_entry_fn = None
 
-    def handler(self, allow_guest: bool = False):
+    def register(
+        self,
+        name: str | None = None,
+        *,
+        allow_guest: bool = False,
+        xss_safe: bool = False,
+    ):
         from werkzeug import Response
 
         try:
             import frappe
         except ImportError as e:
             raise Exception(
-                'mcp.handler can be used only in a Frappe app.\n'
+                'mcp.register can be used only in a Frappe app.\n'
                 'If you are using it in some other Werkzeug based server\n'
                 'you should use the mcp.handle function instead.'
             ) from e
 
+        self._name = name
         whitelister = frappe.whitelist(
             allow_guest=allow_guest,
-            xss_safe=False,
+            xss_safe=xss_safe,
             methods=['GET', 'POST'],
         )
 
         def decorator(fn):
-            fn_whitelisted = whitelister(fn)
-            self.mcp_entry_fn = fn
+            if self._mcp_entry_fn is not None:
+                raise Exception('mcp.register can be used only once per MCP instance')
 
-            def wrapper(*args, **kwargs):
+            self._mcp_entry_fn = fn
+
+            def wrapper() -> Response:
                 # Runs wrapped dummy mcp handler before handling the request.
                 # This should import all the files with the registered mcp
                 # functions.
-                fn_whitelisted(*args, **kwargs)
+                fn()
 
                 request = frappe.request
                 response = Response()
 
                 return self.handle(request, response)
 
-            return wrapper
+            return whitelister(wrapper)
 
         return decorator
 
@@ -110,10 +122,14 @@ class MCP:
                     annotations=annotations,
                 ),
             )
-            self.tool_registry[tool['name']] = tool
+            self.add_tool(tool)
             return fn
 
         return decorator
+
+    def add_tool(self, tool: tools.Tool):
+        """Can be used instead of @tool(...) decorator"""
+        self._tool_registry[tool['name']] = tool
 
     def _handle_request(
         self,
@@ -139,7 +155,7 @@ class MCP:
 
         match method:
             case 'initialize':
-                result = handlers.handle_initialize(params)
+                result = handlers.handle_initialize(params, self._name or 'frappe-mcp')
             case 'ping':
                 result = handlers.handle_ping(params)
             case 'completion/complete':
@@ -161,9 +177,9 @@ class MCP:
             case 'resources/unsubscribe':
                 result = handlers.handle_unsubscribe(params)
             case 'tools/call':
-                result = tools.handle_call_tool(params, self.tool_registry)
+                result = tools.handle_call_tool(params, self._tool_registry)
             case 'tools/list':
-                result = tools.handle_list_tools(params, self.tool_registry)
+                result = tools.handle_list_tools(params, self._tool_registry)
             case _:
                 return handle_invalid(
                     request_id,
