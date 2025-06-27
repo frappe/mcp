@@ -15,7 +15,7 @@ def fetch_todos(username: str): ...
 @mcp.tool()
 def mark_done(name: str): ...
 
-# MCP end point at: http://<BASE_URL>/api/method/app.mcp.handle_mcp
+# MCP endpoint at: http://<BASE_URL>/api/method/app.mcp.handle_mcp
 @mcp.register()
 def handle_mcp(): ...
 ```
@@ -84,7 +84,7 @@ This prevents automatic auth endpoint discovery and client registration. This me
 that **authorization has to be manually configured**.
 
 Depending on feasibility we may or may not incorporate these OAuth2 features,
-the README will be updated once a call is take on this.
+the README will be updated once a call is taken on this.
 
 _Note: the steps for manual auth configuration will be added soon._
 
@@ -143,10 +143,10 @@ def tool_name(a: int, b: str):
 If needed, you can manually provide the `inputSchema` and other meta data like annotations.
 Check the [Tools](#tools) section for more details.
 
-#### Register end point using `@mcp.register`
+#### Register endpoint using `@mcp.register`
 
 You use the instantiated object to mark a function as the _entry point_ to your
-MCP server, i.e. the function end point will be where your MCP server is served
+MCP server, i.e. the function endpoint will be where your MCP server is served
 from.
 
 ```python
@@ -225,9 +225,9 @@ def get_current_weather(location: str, unit: str = "celsius"):
 
 #### `mcp.add_tool` method
 
-The `mcp.add_tool` method allows for manuall defining a tool, serving as an alternative to the `@mcp.tool` decorator.
+The `mcp.add_tool` method allows manually defining a tool, serving as an alternative to the `@mcp.tool` decorator.
 
-It takes a `Tool` object as as arg.
+It takes a `Tool` object as an arg.
 
 **Example:**
 
@@ -286,7 +286,7 @@ class Tool(TypedDict):
 
 #### Input Schema
 
-Input schema refers to the [JSON Schema](https://json-schema.org/understanding-json-schema/reference/type) definition that describes a tools parameters.
+Input schema refers to the [JSON Schema](https://json-schema.org/understanding-json-schema/reference/type) definition that describes a tool's parameters.
 
 The following tool:
 
@@ -431,10 +431,10 @@ your MCP endpoints are being served correctly.
 Make sure to:
 
 1. Set **Transport** to **Streamable HTTP**.
-2. Set **URL** to your MCP end point (you can use the CLI command `frappe-mcp check` to get it).
+2. Set **URL** to your MCP endpoint (you can use the CLI command `frappe-mcp check` to get it).
 
 > [!NOTE]
 >
 > For now authentication has not yet been implemented for `frappe-mcp` so you
-> need to register the end point with `mcp.register(allow_guest=True)`. Once the
+> need to register the endpoint with `mcp.register(allow_guest=True)`. Once the
 > flag is set not additional config is needed in the inspector.
