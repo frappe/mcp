@@ -34,6 +34,18 @@ _On GitHub, click the Index button on the top right to view the index._
 
 ## Installation
 
+Frappe MCP is yet to be published, until then you will have to clone and then
+install from dir. For illustration:
+
+```bash
+git clone https://github.com/frappe/mcp
+
+cd path/to/bench
+source ./env/bin/activate
+
+pip install path/to/cloned/dir/mcp
+```
+
 <!--
 You install Frappe MCP like any other dependency Python dependency.
 
@@ -52,15 +64,33 @@ Then update your `pyproject.toml` to include Frappe MCP
 
 ## Limitations
 
-<!-- Add -->
+**Feature Limitations**
 
-### Authentication
+Frappe MCP is yet in its infancy, as of now it **only supports** Tools.
+Remaining server features such as resources, prompts, tool streaming using SSE
+will be added as needed.
 
-## Not yet implemented
+**Auth Limitations**
+
+MCP uses OAuth2 for authorization. While Frappe supports OAuth2, allowing it to
+function as an authorization server and a resource server, it doesn't as of now
+have the required features to be fully compliant with the MCP spec. Specifically
+the following are missing from the Framework:
+
+- OAuth 2.0 Authorization Server Metadata ([RFC8414](https://datatracker.ietf.org/doc/html/rfc8414))
+- OAuth 2.0 Dynamic Client Registration Protocol ([RFC7591](https://datatracker.ietf.org/doc/html/rfc7591))
+
+This prevents automatic auth endpoint discovery and client registration. This means
+that **authorization has to be manually configured**.
+
+Depending on feasibility we may or may not incorporate these OAuth2 features,
+the README will be updated once a call is take on this.
+
+_Note: the steps for manual auth configuration will be added soon._
 
 ## Auth
 
-Yet to be implemented.
+To be added.
 
 ## Documentation
 
@@ -408,5 +438,3 @@ Make sure to:
 > For now authentication has not yet been implemented for `frappe-mcp` so you
 > need to register the end point with `mcp.register(allow_guest=True)`. Once the
 > flag is set not additional config is needed in the inspector.
-
-
