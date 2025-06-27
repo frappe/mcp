@@ -359,6 +359,8 @@ It returns the populated `werkzeug.Response` object.
 
 Frappe MCP comes with a handy CLI tool to help you verify that your MCP server is set up correctly.
 
+<img width="436" alt="check" src="https://github.com/user-attachments/assets/a8e1481a-5388-4976-9728-404677381a07" />
+
 Its `check` command inspects your Frappe apps to ensure that `frappe_mcp` is being used correctly. This is also the default command, so you can run it with `frappe-mcp` or `frappe-mcp check`.
 
 It performs the following checks:
@@ -388,13 +390,13 @@ frappe-mcp
 frappe-mcp check --app app_name --verbose
 ```
 
-**Example Output**
-
 ## Testing against Inspector
 
 You can use the official
 [inspector](https://github.com/modelcontextprotocol/inspector) tool to verify if
 your MCP endpoints are being served correctly.
+
+![inspector](https://github.com/user-attachments/assets/64e13ed4-0170-48b4-8b35-530e0f713a29)
 
 Make sure to:
 
@@ -407,4 +409,4 @@ Make sure to:
 > need to register the end point with `mcp.register(allow_guest=True)`. Once the
 > flag is set not additional config is needed in the inspector.
 
-**Example Output**
+
