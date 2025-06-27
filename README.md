@@ -1,6 +1,7 @@
 # Frappe MCP
 
-Frappe MCP allows your Frappe Framework app to function as an MCP server.
+Frappe MCP allows your Frappe Framework app to function as a Streamable HTTP MCP
+server.
 
 ```python
 # app/app/mcp.py
@@ -54,8 +55,6 @@ Then update your `pyproject.toml` to include Frappe MCP
 <!-- Add -->
 
 ### Authentication
-
-### Type Annotations
 
 ## Not yet implemented
 
@@ -345,7 +344,7 @@ def handle_mcp():
 This method directly processes a `werkzeug.Request` and returns a
 `werkzeug.Response`. It's the core request handling logic.
 
-This method can be used to integrate the MCP server into **any Werkzeug-based application** 
+This method can be used to integrate the MCP server into **any Werkzeug-based application**
 i.e. even if you're not using Frappe Framework, you can use this to handle MCP
 endpoints in your server.
 
@@ -358,4 +357,54 @@ It returns the populated `werkzeug.Response` object.
 
 ## CLI
 
-## Test Endpoints
+Frappe MCP comes with a handy CLI tool to help you verify that your MCP server is set up correctly.
+
+Its `check` command inspects your Frappe apps to ensure that `frappe_mcp` is being used correctly. This is also the default command, so you can run it with `frappe-mcp` or `frappe-mcp check`.
+
+It performs the following checks:
+
+- Verifies that it's running within a Frappe environment.
+- Finds all apps that are potentially using `frappe_mcp`.
+- For each app, it discovers MCP handlers.
+- It then checks the handlers and their tools for correctness.
+
+**Options:**
+
+- `--app`, `-a`': Check only a specific app.
+- `--verbose`, `-v`: Show detailed information such as the input schema.
+
+**Usage:**
+
+```bash
+# After installing frappe-mcp and using it in your app
+
+# In your frappe bench dir so that you can use the cli
+source ./env/bin/activate
+
+# Check all apps that might be using Frappe MCP
+frappe-mcp
+
+# Check specific app with verbose output
+frappe-mcp check --app app_name --verbose
+```
+
+**Example Output**
+
+## Testing against Inspector
+
+You can use the official
+[inspector](https://github.com/modelcontextprotocol/inspector) tool to verify if
+your MCP endpoints are being served correctly.
+
+Make sure to:
+
+1. Set **Transport** to **Streamable HTTP**.
+2. Set **URL** to your MCP end point (you can use the CLI command `frappe-mcp check` to get it).
+
+> [!NOTE]
+>
+> For now authentication has not yet been implemented for `frappe-mcp` so you
+> need to register the end point with `mcp.register(allow_guest=True)`. Once the
+> flag is set not additional config is needed in the inspector.
+
+**Example Output**

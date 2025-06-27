@@ -19,7 +19,7 @@ def version():
 
 
 @run.command()
-@click.option('--app', help='Check only a specific app')
+@click.option('--app', '-a', help='Check only a specific app')
 @click.option('--verbose', '-v', is_flag=True, help='Show detailed information')
 def check(app: str | None = None, verbose: bool = False):
     """Check if Frappe MCP is being used correctly"""
