@@ -299,6 +299,63 @@ decorator.
 
 ### MCP
 
+The `MCP` class is the main class for creating an MCP server.
+
+This class orchestrates the handling of JSON-RPC requests, manages a registry of
+available tools, and integrates with a WSGI server (like Frappe Framework) to
+expose MCP functionality.
+
+In a Frappe application, you would typically create a single instance of this
+class and use the `@mcp.register()` decorator on an API endpoint. Tools can be
+added using the `@mcp.tool()` decorator.
+
+For use in other Werkzeug-based servers, you can use the `mcp.handle()` method
+directly.
+
+#### `mcp.register` decorator
+
+This decorator is used in Frappe applications to designate a function as the
+entry point for MCP requests. It wraps the function with the necessary logic to
+handle JSON-RPC messages, including initializing the tool registry and routing
+requests to the appropriate handlers.
+
+The decorator accepts the following optional arguments:
+
+- `allow_guest` (optional `bool`): If `True`, allows unauthenticated access to the endpoint. Defaults to `False`.
+- `xss_safe` (optional `bool`): If `True`, response will not be sanitized for XSS. Defaults to `False`.
+
+**Example:**
+
+```python
+# In app/mcp.py
+from frappe_mcp import MCP
+
+mcp = MCP(name="my-mcp-server")
+
+@mcp.register()
+def handle_mcp():
+    '''The entry point for MCP requests.'''
+    # This function body is executed before request handling.
+    # It's a good place to import modules that register tools.
+    import app.tools
+```
+
+#### `mcp.handle` method
+
+This method directly processes a `werkzeug.Request` and returns a
+`werkzeug.Response`. It's the core request handling logic.
+
+This method can be used to integrate the MCP server into **any Werkzeug-based application** 
+i.e. even if you're not using Frappe Framework, you can use this to handle MCP
+endpoints in your server.
+
+It accepts the following arguments:
+
+- `request`: The `werkzeug.Request` object containing the MCP request.
+- `response`: A `werkzeug.Response` object to be populated with the MCP response.
+
+It returns the populated `werkzeug.Response` object.
+
 ## CLI
 
 ## Test Endpoints

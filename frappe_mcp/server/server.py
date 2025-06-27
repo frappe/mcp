@@ -15,6 +15,40 @@ __all__ = ['MCP']
 
 
 class MCP:
+    """The main class for creating an MCP server.
+
+    This class orchestrates the handling of JSON-RPC requests, manages a
+    registry of available tools, and integrates with a web server framework
+    to expose the MCP functionality.
+
+    In a Frappe application, you would typically create a single instance of
+    this class and use the `@mcp.register()` decorator on an API endpoint.
+    Tools can be added using the `@mcp.tool()` decorator.
+
+    Example:
+        ```python
+        # In app/mcp.py
+        from frappe_mcp import MCP
+
+        mcp = MCP(name="my-mcp-server")
+
+        @mcp.tool()
+        def my_tool(param1: str):
+            '''A simple tool.'''
+            return f"You said: {param1}"
+
+        @mcp.register()
+        def mcp_endpoint():
+            '''The entry point for MCP requests.'''
+            # This function body is executed before request handling.
+            # It's a good place to import modules that register tools.
+            pass
+        ```
+
+    For use in other Werkzeug-based servers, you can use the `mcp.handle()`
+    method directly.
+    """
+
     _name: str | None
     _tool_registry: OrderedDict[str, tools.Tool]
     _mcp_entry_fn: Callable | None
@@ -30,6 +64,21 @@ class MCP:
         allow_guest: bool = False,
         xss_safe: bool = False,
     ):
+        """A decorator to mark a function as an MCP endpoint.
+
+        This is a wrapper around frappe.whitelist() that sets up the necessary
+        configuration for handling MCP requests. The decorated function will be
+        used as the entry point for all MCP requests.
+
+        Only one function can be registered as an MCP endpoint per MCP instance.
+
+        Args:
+            allow_guest: If True, allows unauthenticated access to the endpoint.
+            xss_safe: If True, response will not be sanitized for XSS.
+
+        Raises:
+            Exception: If not used in a Frappe app, or if already registered.
+        """
         from werkzeug import Response
 
         try:
@@ -69,6 +118,18 @@ class MCP:
         return decorator
 
     def handle(self, request: Request, response: Response) -> Response:
+        """Handle an MCP request in any Werkzeug based server.
+
+        This method can be used directly to integrate MCP functionality into any Werkzeug based server.
+        It processes the request according to the MCP specification and returns an appropriate response.
+
+        Args:
+            request: The Werkzeug Request object containing the MCP request
+            response: A Werkzeug Response object to be populated with the MCP response
+
+        Returns:
+            The populated Werkzeug Response object
+        """
         if request.method != 'POST':
             response.status_code = 405
             return response
