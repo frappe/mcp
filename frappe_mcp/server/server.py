@@ -103,25 +103,22 @@ class MCP:
         # whitelist: list | None = None,
         # role: str | None = None,
     ):
-        """A decorator that registers a function as a tool that can be used by the AI.
-
-        This decorator can be used to expose functions to the AI model, allowing it to call them
-        to perform actions. The decorator can be used with or without arguments.
+        """A decorator that registers a function as a tool that can be used by an LLM.
 
         Example:
-            >>> @mcp.tool
+            >>> @mcp.tool()
             ... def get_current_weather(location: str, unit: str = "celsius"):
             ...     '''Get the current weather in a given location.'''
             ...     # ... implementation ...
 
         Args:
-            name: The name of the tool. If not provided, the function's ``__name__`` will be used.
+            name: The name of the tool. If not provided, the function's `__name__` will be used.
             description: A description of what the tool does. If not provided, it will be
                 extracted from the function's docstring.
             input_schema: The JSON schema for the tool's input. If not provided, it will be
                 inferred from the function's signature and docstring.
             use_entire_docstring: If True, the entire docstring will be used as the tool's
-                description. Otherwise, only the first line is used.
+                description. Otherwise, only the first section is used (i.e. no Args).
             annotations: Additional context about the tool, such as validation information
                 or examples of how to use it.
         """
@@ -143,7 +140,16 @@ class MCP:
         return decorator
 
     def add_tool(self, tool: tools.Tool):
-        """Can be used instead of @tool(...) decorator"""
+        """Registers a tool with the MCP instance.
+
+        This method allows for adding a tool programmatically, serving as an
+        alternative to the `@mcp.tool` decorator. The provided tool should
+        be a dictionary conforming to the `frappe_mcp.Tool` `TypedDict` structure.
+
+        Args:
+            tool: The tool to register. It must be a dictionary with keys
+                'name', 'description', 'input_schema', and 'fn'.
+        """
         self._tool_registry[tool['name']] = tool
 
     def _handle_request(
