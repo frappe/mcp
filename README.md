@@ -1,7 +1,7 @@
 # Frappe MCP
 
-Frappe MCP allows your Frappe Framework app to function as a Streamable HTTP MCP
-server.
+Frappe MCP allows your Frappe Framework app to function as a [Streamable HTTP MCP
+server](https://modelcontextprotocol.io/specification/2025-06-18/basic/transports#streamable-http).
 
 ```python
 # app/app/mcp.py
@@ -436,5 +436,5 @@ Make sure to:
 > [!NOTE]
 >
 > For now authentication has not yet been implemented for `frappe-mcp` so you
-> need to register the endpoint with `mcp.register(allow_guest=True)`. Once the
-> flag is set not additional config is needed in the inspector.
+> need to register the endpoint with `mcp.register(allow_guests=True)`. Once the
+> flag is set no additional config is needed in the inspector.
