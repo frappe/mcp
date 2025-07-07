@@ -64,33 +64,20 @@ Then update your `pyproject.toml` to include Frappe MCP
 
 ## Limitations
 
-**Feature Limitations**
-
 Frappe MCP is yet in its infancy, as of now it **only supports** Tools.
 Remaining server features such as resources, prompts, tool streaming using SSE
 will be added as needed.
 
-**Auth Limitations**
-
-MCP uses OAuth2 for authorization. While Frappe supports OAuth2, allowing it to
-function as an authorization server and a resource server, it doesn't as of now
-have the required features to be fully compliant with the MCP spec. Specifically
-the following are missing from the Framework:
-
-- OAuth 2.0 Authorization Server Metadata ([RFC8414](https://datatracker.ietf.org/doc/html/rfc8414))
-- OAuth 2.0 Dynamic Client Registration Protocol ([RFC7591](https://datatracker.ietf.org/doc/html/rfc7591))
-
-This prevents automatic auth endpoint discovery and client registration. This means
-that **authorization has to be manually configured**.
-
-Depending on feasibility we may or may not incorporate these OAuth2 features,
-the README will be updated once a call is taken on this.
-
-_Note: the steps for manual auth configuration will be added soon._
-
 ## Auth
 
-To be added.
+If you are using a version of the Framework having the OAuth2 updates
+([frappe#33188](https://github.com/frappe/frappe/pull/33188)) then using Frappe
+MCP with it should be pretty straight forward. You can view this video to check
+out how to set up Auth on the MCP Inspector.
+
+If your version does not contain these updates, you will have to register an
+OAuth Client on your Framework instance for ht MCP client. You can check the
+[docs](https://docs.frappe.io/framework/oauth2) for this.
 
 ## Documentation
 
@@ -173,18 +160,6 @@ http://<SITE_NAME:PORT>/api/method/app.mcp.handle_mcp
 >
 > If your tools are in the same file, or have been imported globally, you can
 > leave the function body empty.
-
-> [!NOTE]
->
-> Due to current limitations of the Framework, while running the locally
-> for development purposes, you may set the `allow_guests` flag, i.e:
->
-> ```python
-> @mcp.register(allow_guests=True)
-> def handle_mcp(): ...
-> ```
->
-> **This bypasses auth, so make sure you don't do this in production.**
 
 ### Tools
 
@@ -432,9 +407,18 @@ Make sure to:
 
 1. Set **Transport** to **Streamable HTTP**.
 2. Set **URL** to your MCP endpoint (you can use the CLI command `frappe-mcp check` to get it).
+3. Navigate to Auth Settings then click on **Quick OAuth Flow**
+
+After this you'll be prompted to login and authorize the client after which you
+can use it to test out your MCP server.
 
 > [!NOTE]
 >
-> For now authentication has not yet been implemented for `frappe-mcp` so you
-> need to register the endpoint with `mcp.register(allow_guests=True)`. Once the
-> flag is set no additional config is needed in the inspector.
+> You may skip the final step by setting the `allow_guests` flag, i.e:
+>
+> ```python
+> @mcp.register(allow_guests=True)
+> def handle_mcp(): ...
+> ```
+>
+> **This bypasses auth, so make sure you don't do this in production.**
