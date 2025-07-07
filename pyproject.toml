@@ -1,29 +1,45 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
 [project]
 name = "frappe-mcp"
-version = "0.1.0"
 description = "Frappe MCP allows building MCP compatibility into Frappe apps"
-authors = [{ name = "Alan Tom", email = "me@18alan.space" }]
+authors = [
+  { name = "Alan Tom", email = "me@18alan.space" },
+  { name = "Frappe Techonologies Pvt Ltd", email = "developers@frappe.io" },
+]
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
   "Werkzeug==3.1.3",
-  "pydantic (>=2.11.7,<3.0.0)",
+  "pydantic~=2.11.7",
   "jsonschema (>=4.24.0,<5.0.0)",
-  "click>=8.2.1",
+  "Click~=8.2.0",
 ]
+dynamic = ["version"]
+license = "MIT"
+license-files = ["LICENSE"]
+
+[project.urls]
+Homepage = "https://github.com/frappe/frappe-mcp"
+Documentation = "https://github.com/frappe/frappe-mcp"
+Source = "https://github.com/frappe/frappe-mcp"
+
+[project.scripts]
+frappe-mcp = "frappe_mcp.cli:run"
 
 [dependency-groups]
 dev = ["pytest>=8.4.1", "ruff>=0.12.0"]
 
-[project.scripts]
-frappe-mcp = "frappe_mcp.cli:run"
+[tool.hatch.version]
+path = "frappe_mcp/__init__.py"
 
 [tool.pytest.ini_options]
 python_files = ["test_*.py"]
 
 [tool.ruff]
-# Same as Black.
-line-length = 88
+line-length = 88 # Same as Black.
 indent-width = 4
 
 target-version = "py310"
@@ -48,3 +64,10 @@ indent-style = "space"
 
 [tool.ruff.lint.per-file-ignores]
 "frappe_mcp/server/types.py" = ["N815", "UP007"]
+
+
+[[tool.uv.index]]
+name = "testpypi"
+url = "https://test.pypi.org/simple/"
+publish-url = "https://test.pypi.org/legacy/"
+explicit = true
