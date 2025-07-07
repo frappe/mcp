@@ -75,6 +75,8 @@ If you are using a version of the Framework having the OAuth2 updates
 MCP with it should be pretty straight forward. You can view this video to check
 out how to set up Auth on the MCP Inspector.
 
+https://github.com/user-attachments/assets/a1783a36-7bea-4361-8c7b-bdbb9789877b
+
 If your version does not contain these updates, you will have to register an
 OAuth Client on your Framework instance for ht MCP client. You can check the
 [docs](https://docs.frappe.io/framework/oauth2) for this.
