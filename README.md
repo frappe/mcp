@@ -30,37 +30,26 @@ def handle_mcp(): ...
 > Frappe Framework is not async, it makes use of Werkzeug, a WSGI server, and so
 > a from scratch implementation was needed.
 
+> [!IMPORTANT]
+>
+> Frappe MCP is in a highly experimental state, there will be bugs, breaking
+> changes and large updates. Mostly without notice.
+
 _On GitHub, click the Index button on the top right to view the index._
 
 ## Installation
 
-Frappe MCP is yet to be published, until then you will have to clone and then
-install from dir. For illustration:
-
-```bash
-git clone https://github.com/frappe/mcp
-
-cd path/to/bench
-source ./env/bin/activate
-
-pip install path/to/cloned/dir/mcp
-```
-
-<!--
-You install Frappe MCP like any other dependency Python dependency.
-
-```bash
-uv add frappe-mcp
-```
-
-or
+Using PIP:
 
 ```bash
 pip install frappe-mcp
 ```
 
-Then update your `pyproject.toml` to include Frappe MCP
--->
+Using UV:
+
+```bash
+uv add frappe-mcp
+```
 
 ## Limitations
 
