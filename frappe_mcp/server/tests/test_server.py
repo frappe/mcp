@@ -129,3 +129,73 @@ def test_handle_call_tool_with_regular_content(mcp_instance):
     assert 'result' in response_data
     # assert response_data['result']['structuredContent'] is None
     assert response_data['result']['content'] == [{'type': 'text', 'text': '3'}]
+
+
+def test_handle_initialize_has_full_capabilities(mcp_instance):
+    request_data = {
+        'jsonrpc': '2.0',
+        'id': 4,
+        'method': 'initialize',
+        'params': {
+            'protocolVersion': '2025-06-18',
+            'clientInfo': {'name': 'test-client'},
+            'capabilities': {},
+        },
+    }
+    request = Request.from_values(
+        method='POST',
+        content_type='application/json',
+        input_stream=io.BytesIO(json.dumps(request_data).encode('utf-8')),
+    )
+
+    response = mcp_instance.handle(request, Response())
+
+    assert response.status_code == 200
+    response_data = json.loads(response.data)
+    capabilities = response_data['result']['capabilities']
+    assert 'tools' in capabilities
+    assert 'prompts' in capabilities
+    assert 'resources' in capabilities
+    assert 'logging' in capabilities
+    assert 'completions' in capabilities
+
+
+def _make_request(method: str, method_id: int = 10, params: dict | None = None):
+    return Request.from_values(
+        method='POST',
+        content_type='application/json',
+        input_stream=io.BytesIO(
+            json.dumps(
+                {
+                    'jsonrpc': '2.0',
+                    'id': method_id,
+                    'method': method,
+                    'params': params or {},
+                }
+            ).encode('utf-8')
+        ),
+    )
+
+
+def test_handle_empty_compatibility_methods(mcp_instance):
+    cases = [
+        ('ping', {}),
+        ('completion/complete', {'ref': {'type': 'ref/prompt'}}),
+        ('logging/setLevel', {'level': 'debug'}),
+        ('prompts/list', {}),
+        ('resources/list', {}),
+        ('resources/templates/list', {}),
+        ('prompts/get', {'name': 'does-not-exist'}),
+        ('resources/read', {'uri': 'file:///tmp'}),
+        ('resources/subscribe', {'uri': 'file:///tmp'}),
+        ('resources/unsubscribe', {'uri': 'file:///tmp'}),
+    ]
+
+    for i, (method, params) in enumerate(cases, start=20):
+        request = _make_request(method, i, params)
+        response = mcp_instance.handle(request, Response())
+        assert response.status_code == 200
+
+        response_data = json.loads(response.data)
+        assert response_data['id'] == i
+        assert 'result' in response_data

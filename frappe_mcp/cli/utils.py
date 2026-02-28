@@ -121,7 +121,7 @@ def get_mcp_url(mcp_entry_fn) -> str:
         host_name = None
 
     if host_name:
-        host_name.removesuffix('/')
+        host_name = host_name.removesuffix('/')
         mcp_url = click.style('/'.join([host_name, mcp_path]), fg='cyan')
 
     return mcp_url
@@ -217,7 +217,10 @@ def get_apps_using_frappe_mcp() -> list[str]:
     from pathlib import Path
 
     import frappe
-    import tomllib
+    try:
+        import tomllib
+    except ModuleNotFoundError:  # Python < 3.11
+        import tomli as tomllib
 
     apps_using_mcp = []
     apps_path = Path(frappe.get_app_path('frappe')).parent.parent
@@ -240,4 +243,23 @@ def get_apps_using_frappe_mcp() -> list[str]:
         dependencies = pyproject.get('project', {}).get('dependencies', [])
         if any('frappe-mcp' in dep for dep in dependencies):
             apps_using_mcp.append(app)
+            continue
+
+        if _app_source_uses_frappe_mcp(app_path):
+            apps_using_mcp.append(app)
+
     return apps_using_mcp
+
+
+def _app_source_uses_frappe_mcp(app_path: Path) -> bool:
+    for p in app_path.rglob('*.py'):
+        try:
+            with open(p, encoding='utf-8') as f:
+                contents = f.read()
+        except (OSError, UnicodeDecodeError):
+            continue
+
+        if 'frappe_mcp' in contents:
+            return True
+
+    return False

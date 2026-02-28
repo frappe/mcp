@@ -51,11 +51,20 @@ Using UV:
 uv add frappe-mcp
 ```
 
-## Limitations
+## Coverage
 
-Frappe MCP is yet in its infancy, as of now it **only supports** Tools.
-Remaining server features such as resources, prompts, tool streaming using SSE
-will be added as needed.
+Frappe MCP started as a tools-first implementation and now supports the core
+MCP request families from the protocol:
+
+- `initialize`
+- `tools/*`
+- `ping`
+- `logging/setLevel` (acknowledged)
+- `prompts/*` (currently list/get placeholders)
+- `resources/*` (currently list/read/subscribe placeholders)
+
+These placeholders return protocol-shaped empty responses where handlers are not yet
+app-specific and can be extended in your own implementation as needed.
 
 ## Auth
 

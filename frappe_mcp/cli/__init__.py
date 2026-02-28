@@ -2,6 +2,11 @@ import click
 
 from frappe_mcp.cli import utils
 
+try:
+    import tomllib
+except ModuleNotFoundError:  # Python < 3.11
+    import tomli as tomllib
+
 
 @click.group(invoke_without_command=True)
 @click.pass_context
@@ -56,8 +61,6 @@ def check(app: str | None = None, verbose: bool = False):
 
 def get_version():
     from pathlib import Path
-
-    import tomllib
 
     pyproject_path = Path(__file__).parent.parent.parent / 'pyproject.toml'
     with open(pyproject_path, 'rb') as f:
