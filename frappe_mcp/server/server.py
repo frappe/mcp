@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import functools
 from collections import OrderedDict
 from collections.abc import Callable
 
@@ -102,6 +103,7 @@ class MCP:
 
             self._mcp_entry_fn = fn
 
+            @functools.wraps(fn)
             def wrapper() -> Response:
                 # Runs wrapped dummy mcp handler before handling the request.
                 # This should import all the files with the registered mcp
