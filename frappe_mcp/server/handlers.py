@@ -11,9 +11,9 @@ def handle_initialize(params, name: str):
         'serverInfo': {'name': name, 'version': '0.1.0'},
         'capabilities': {
             'tools': {'listChanged': False},
+            'prompts': {'listChanged': False},
             # Not yet implemented
             # "completions": {},
-            # "prompts": {"listChanged": False},
             # "resources": {"subscribe": True, "listChanged": False},
             # "logging": {},
         },
@@ -28,43 +28,35 @@ def handle_ping(_):
     return {}
 
 
-def handle_complete(params):
+def handle_complete(_params):
     raise NotImplementedError('handle_complete not implemented')
 
 
-def handle_set_level(params):
+def handle_set_level(_params):
     raise NotImplementedError('handle_set_level not implemented')
 
 
-def handle_get_prompt(params):
-    raise NotImplementedError('handle_get_prompt not implemented')
-
-
-def handle_list_prompts(params):
-    raise NotImplementedError('handle_list_prompts not implemented')
-
-
-def handle_list_resources(params):
+def handle_list_resources(_params):
     raise NotImplementedError('handle_list_resources not implemented')
 
 
-def handle_list_resource_templates(params):
+def handle_list_resource_templates(_params):
     raise NotImplementedError('handle_list_resource_templates not implemented')
 
 
-def handle_read_resource(params):
+def handle_read_resource(_params):
     raise NotImplementedError('handle_read_resource not implemented')
 
 
-def handle_subscribe(params):
+def handle_subscribe(_params):
     raise NotImplementedError('handle_subscribe not implemented')
 
 
-def handle_unsubscribe(params):
+def handle_unsubscribe(_params):
     raise NotImplementedError('handle_unsubscribe not implemented')
 
 
-def handle_cancelled(params): ...
-def handle_progress(params): ...
-def handle_initialized(params): ...
-def handle_roots_list_changed(params): ...
+def handle_cancelled(_params): ...
+def handle_progress(_params): ...
+def handle_initialized(_params): ...
+def handle_roots_list_changed(_params): ...

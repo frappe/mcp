@@ -8,6 +8,7 @@ from pydantic import BaseModel, ValidationError
 from werkzeug.wrappers import Request, Response
 
 import frappe_mcp.server.handlers as handlers
+import frappe_mcp.server.prompts as prompts
 import frappe_mcp.server.tools as tools
 from frappe_mcp.server import types
 
@@ -51,10 +52,12 @@ class MCP:
 
     _name: str | None
     _tool_registry: OrderedDict[str, tools.Tool]
+    _prompt_registry: OrderedDict[str, prompts.Prompt]
     _mcp_entry_fn: Callable | None
 
     def __init__(self, name: str | None):
         self._tool_registry = OrderedDict()
+        self._prompt_registry = OrderedDict()
         self._name = name
         self._mcp_entry_fn = None
 
@@ -213,6 +216,54 @@ class MCP:
         """
         self._tool_registry[tool['name']] = tool
 
+    def prompt(
+        self,
+        *,
+        name: str | None = None,
+        description: str | None = None,
+        arguments: list[prompts.PromptArgument] | None = None,
+    ):
+        """A decorator that registers a function as a prompt template.
+
+        The decorated function is called with string keyword arguments matching
+        the declared prompt arguments and must return either a list of
+        PromptMessage objects or a GetPromptResult instance.
+
+        Example:
+            >>> @mcp.prompt()
+            ... def summarize(topic: str, language: str = "english"):
+            ...     '''Summarize a topic.'''
+            ...     return [PromptMessage(role="user", content=TextContent(text=f"Summarize {topic} in {language}"))]
+
+        Args:
+            name: The prompt name. Defaults to the function's __name__.
+            description: A description of the prompt. Defaults to the docstring.
+            arguments: Explicit argument list. Inferred from the signature if omitted.
+        """
+
+        def decorator(fn: Callable):
+            prompt = prompts.get_prompt(
+                fn,
+                prompts.PromptOptions(
+                    name=name,
+                    description=description,
+                    arguments=arguments,
+                ),
+            )
+            self.add_prompt(prompt)
+            return fn
+
+        return decorator
+
+    def add_prompt(self, prompt: prompts.Prompt):
+        """Registers a prompt with the MCP instance.
+
+        Args:
+            prompt: A Prompt TypedDict with keys 'name', 'description',
+                'arguments', and 'fn'.
+        """
+        self._prompt_registry[prompt['name']] = prompt
+
     def _handle_request(
         self,
         request_id: types.RequestId,
@@ -235,40 +286,47 @@ class MCP:
 
         result = None
 
-        match method:
-            case 'initialize':
-                result = handlers.handle_initialize(params, self._name or 'frappe-mcp')
-            case 'ping':
-                result = handlers.handle_ping(params)
-            case 'completion/complete':
-                result = handlers.handle_complete(params)
-            case 'logging/setLevel':
-                result = handlers.handle_set_level(params)
-            case 'prompts/get':
-                result = handlers.handle_get_prompt(params)
-            case 'prompts/list':
-                result = handlers.handle_list_prompts(params)
-            case 'resources/list':
-                result = handlers.handle_list_resources(params)
-            case 'resources/templates/list':
-                result = handlers.handle_list_resource_templates(params)
-            case 'resources/read':
-                result = handlers.handle_read_resource(params)
-            case 'resources/subscribe':
-                result = handlers.handle_subscribe(params)
-            case 'resources/unsubscribe':
-                result = handlers.handle_unsubscribe(params)
-            case 'tools/call':
-                result = tools.handle_call_tool(params, self._tool_registry)
-            case 'tools/list':
-                result = tools.handle_list_tools(params, self._tool_registry)
-            case _:
-                return handle_invalid(
-                    request_id,
-                    response,
-                    types.METHOD_NOT_FOUND,
-                    'Method not found',
-                )
+        try:
+            match method:
+                case 'initialize':
+                    result = handlers.handle_initialize(params, self._name or 'frappe-mcp')
+                case 'ping':
+                    result = handlers.handle_ping(params)
+                case 'completion/complete':
+                    result = handlers.handle_complete(params)
+                case 'logging/setLevel':
+                    result = handlers.handle_set_level(params)
+                case 'prompts/get':
+                    result = prompts.handle_get_prompt(params, self._prompt_registry)
+                case 'prompts/list':
+                    result = prompts.handle_list_prompts(params, self._prompt_registry)
+                case 'resources/list':
+                    result = handlers.handle_list_resources(params)
+                case 'resources/templates/list':
+                    result = handlers.handle_list_resource_templates(params)
+                case 'resources/read':
+                    result = handlers.handle_read_resource(params)
+                case 'resources/subscribe':
+                    result = handlers.handle_subscribe(params)
+                case 'resources/unsubscribe':
+                    result = handlers.handle_unsubscribe(params)
+                case 'tools/call':
+                    result = tools.handle_call_tool(params, self._tool_registry)
+                case 'tools/list':
+                    result = tools.handle_list_tools(params, self._tool_registry)
+                case _:
+                    return handle_invalid(
+                        request_id,
+                        response,
+                        types.METHOD_NOT_FOUND,
+                        'Method not found',
+                    )
+        except ValueError as e:
+            return handle_invalid(request_id, response, types.INVALID_PARAMS, str(e))
+        except NotImplementedError:
+            return handle_invalid(request_id, response, types.METHOD_NOT_FOUND, 'Method not implemented')
+        except Exception as e:
+            return handle_invalid(request_id, response, types.INTERNAL_ERROR, f'Internal error: {e}')
 
         result = {} if result is None else result
         success_response = types.JSONRPCSuccessResponse(id=request_id, result=result)

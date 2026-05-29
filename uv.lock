@@ -1,5 +1,5 @@
 version = 1
-revision = 2
+revision = 3
 requires-python = ">=3.10"
 
 [[package]]
@@ -55,8 +55,7 @@ wheels = [
 
 [[package]]
 name = "frappe-mcp"
-version = "0.1.0"
-source = { virtual = "." }
+source = { editable = "." }
 dependencies = [
     { name = "click" },
     { name = "jsonschema" },
@@ -72,9 +71,9 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "click", specifier = ">=8.2.1" },
+    { name = "click", specifier = ">=8.1.8,<9" },
     { name = "jsonschema", specifier = ">=4.24.0,<5.0.0" },
-    { name = "pydantic", specifier = ">=2.11.7,<3.0.0" },
+    { name = "pydantic", specifier = "~=2.11.7" },
     { name = "werkzeug", specifier = "==3.1.3" },
 ]
 
