@@ -9,6 +9,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from frappe_mcp.server.tools import Tool
+
 # Not derived from `frappe.model.numeric_fieldtypes` etc. — Frappe's groupings
 # classify by DB storage, not JSON Schema shape: Check would fall in as int,
 # Rating wouldn't fall in at all.
@@ -69,3 +71,59 @@ def _with_label(schema: dict[str, Any], field: dict[str, Any]) -> dict[str, Any]
         if label:
             schema["description"] = label
     return schema
+
+
+def _frappe():
+    # Lazy: keep this module importable without a bench, so pure helpers stay
+    # unit-testable and the Frappe dependency is confined to the tool handlers.
+    import frappe
+    return frappe
+
+
+def _snake(doctype: str) -> str:
+    # Matches frappe.scrub: whitespace -> underscore, lowercased.
+    return doctype.replace(" ", "_").lower()
+
+
+def _require_permission(doctype: str, ptype: str, *, doc: str | None = None) -> None:
+    """Raise `PermissionError` if the current user can't `ptype` on `doctype`."""
+    frappe = _frappe()
+    if frappe.has_permission(doctype, ptype=ptype, doc=doc, throw=False):
+        return
+    target = f"{doctype} '{doc}'" if doc else doctype
+    raise PermissionError(f"No {ptype} permission on {target}")
+
+
+def build_tool(doctype: str, operation: str, *, check_permissions: bool = True) -> Tool:
+    """Return the MCP Tool spec for one `operation` on `doctype`.
+
+    A spec — this doesn't call Frappe. Frappe is invoked only when a client
+    (Claude, an MCP Inspector session, ...) actually calls the returned tool.
+    """
+    match operation:
+        case "get":
+            return _get(doctype, check_permissions=check_permissions)
+        case _:
+            raise ValueError(f"Unsupported operation: {operation!r}")
+
+
+def _get(doctype: str, *, check_permissions: bool) -> Tool:
+    input_schema = {
+        "type": "object",
+        "properties": {"name": {"type": "string", "description": f"{doctype} name"}},
+        "required": ["name"],
+    }
+
+    def handler(name: str) -> dict[str, Any]:
+        if check_permissions:
+            _require_permission(doctype, "read", doc=name)
+        return _frappe().get_doc(doctype, name).as_dict()
+
+    return Tool(
+        name=f"get_{_snake(doctype)}",
+        description=f"Get a {doctype} by name.",
+        input_schema=input_schema,
+        output_schema=None,
+        annotations={"readOnlyHint": True},
+        fn=handler,
+    )

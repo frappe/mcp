@@ -9,9 +9,21 @@ input, and the DocType-integration tests live in test_tools.py once the
 
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 import pytest
 
-from frappe_mcp.server.tools.doctype import frappe_fieldtype_to_json_schema
+from frappe_mcp.server.tools import doctype as doctype_module
+from frappe_mcp.server.tools.doctype import build_tool, frappe_fieldtype_to_json_schema
+
+
+def _fake_frappe(*, permission: bool = True, doc: dict | None = None):
+    """Minimal frappe stand-in for handler tests."""
+    doc = doc if doc is not None else {"name": "x", "doctype": "ToDo"}
+    return SimpleNamespace(
+        has_permission=lambda *a, **k: permission,
+        get_doc=lambda dt, name: SimpleNamespace(as_dict=lambda: {**doc, "name": name, "doctype": dt}),
+    )
 
 
 # A minimal DocField shape. Real DocFields have ~40 keys; the helper only
@@ -130,3 +142,56 @@ class TestDefaults:
         # DocFields nearly always have fieldtype, but defensive: if it's
         # missing/None the caller should still get a callable schema.
         assert frappe_fieldtype_to_json_schema({})["type"] == "string"
+
+
+class TestBuildToolDispatch:
+    def test_unknown_operation_raises(self):
+        with pytest.raises(ValueError, match="Unsupported operation"):
+            build_tool("ToDo", "explode")
+
+
+class TestGetOperation:
+    @pytest.mark.parametrize(
+        "doctype, expected_name",
+        [("ToDo", "get_todo"), ("Sales Invoice", "get_sales_invoice"), ("User", "get_user")],
+    )
+    def test_tool_name_is_snake_cased(self, doctype, expected_name):
+        assert build_tool(doctype, "get")["name"] == expected_name
+
+    def test_input_schema_requires_string_name(self):
+        schema = build_tool("ToDo", "get")["input_schema"]
+        assert schema["type"] == "object"
+        assert schema["required"] == ["name"]
+        assert schema["properties"]["name"]["type"] == "string"
+
+    def test_marked_read_only(self):
+        # Signals to MCP clients / LLMs that the tool is safe to call speculatively.
+        assert build_tool("ToDo", "get")["annotations"]["readOnlyHint"] is True
+
+    def test_handler_returns_document_as_dict(self, monkeypatch):
+        monkeypatch.setattr(doctype_module, "_frappe", lambda: _fake_frappe())
+        result = build_tool("ToDo", "get")["fn"](name="task-1")
+        assert result["doctype"] == "ToDo"
+        assert result["name"] == "task-1"
+
+    def test_handler_raises_when_permission_denied(self, monkeypatch):
+        monkeypatch.setattr(doctype_module, "_frappe", lambda: _fake_frappe(permission=False))
+        with pytest.raises(PermissionError):
+            build_tool("ToDo", "get")["fn"](name="task-1")
+
+    def test_check_permissions_false_skips_the_check(self, monkeypatch):
+        calls = []
+
+        def has_permission(*a, **k):
+            calls.append((a, k))
+            return False
+
+        fake = SimpleNamespace(
+            has_permission=has_permission,
+            get_doc=lambda dt, name: SimpleNamespace(as_dict=lambda: {"name": name}),
+        )
+        monkeypatch.setattr(doctype_module, "_frappe", lambda: fake)
+
+        build_tool("ToDo", "get", check_permissions=False)["fn"](name="task-1")
+
+        assert calls == []
