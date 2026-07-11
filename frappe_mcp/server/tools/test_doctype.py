@@ -17,12 +17,20 @@ from frappe_mcp.server.tools import doctype as doctype_module
 from frappe_mcp.server.tools.doctype import build_tool, frappe_fieldtype_to_json_schema
 
 
-def _fake_frappe(*, permission: bool = True, doc: dict | None = None):
+def _fake_frappe(*, permission: bool = True, doc: dict | None = None, list_result=None, list_calls=None):
     """Minimal frappe stand-in for handler tests."""
     doc = doc if doc is not None else {"name": "x", "doctype": "ToDo"}
+    list_result = list_result if list_result is not None else []
+
+    def get_list(dt, **kwargs):
+        if list_calls is not None:
+            list_calls.append({"doctype": dt, **kwargs})
+        return list_result
+
     return SimpleNamespace(
         has_permission=lambda *a, **k: permission,
         get_doc=lambda dt, name: SimpleNamespace(as_dict=lambda: {**doc, "name": name, "doctype": dt}),
+        db=SimpleNamespace(get_list=get_list),
     )
 
 
@@ -195,3 +203,82 @@ class TestGetOperation:
         build_tool("ToDo", "get", check_permissions=False)["fn"](name="task-1")
 
         assert calls == []
+
+
+class TestListOperation:
+    @pytest.mark.parametrize(
+        "doctype, expected_name",
+        [("ToDo", "list_todo"), ("Sales Invoice", "list_sales_invoice")],
+    )
+    def test_tool_name_is_snake_cased(self, doctype, expected_name):
+        assert build_tool(doctype, "list")["name"] == expected_name
+
+    def test_input_schema_has_no_required_args(self):
+        schema = build_tool("ToDo", "list")["input_schema"]
+        assert schema["type"] == "object"
+        assert "required" not in schema  # everything is optional
+        assert set(schema["properties"]) == {"filters", "fields", "limit", "offset", "order_by"}
+
+    def test_marked_read_only(self):
+        assert build_tool("ToDo", "list")["annotations"]["readOnlyHint"] is True
+
+    def test_handler_defaults_are_applied(self, monkeypatch):
+        calls = []
+        monkeypatch.setattr(
+            doctype_module, "_frappe", lambda: _fake_frappe(list_calls=calls, list_result=[])
+        )
+
+        build_tool("ToDo", "list")["fn"]()
+
+        assert calls == [{
+            "doctype": "ToDo",
+            "filters": {},
+            "fields": ["name"],
+            "limit": 20,
+            "start": 0,
+            "order_by": None,
+        }]
+
+    def test_handler_passes_arguments_through(self, monkeypatch):
+        calls = []
+        monkeypatch.setattr(
+            doctype_module, "_frappe", lambda: _fake_frappe(list_calls=calls, list_result=[])
+        )
+
+        build_tool("ToDo", "list")["fn"](
+            filters={"status": "Open"},
+            fields=["name", "description"],
+            limit=5,
+            offset=10,
+            order_by="modified desc",
+        )
+
+        assert calls[0]["filters"] == {"status": "Open"}
+        assert calls[0]["fields"] == ["name", "description"]
+        assert calls[0]["limit"] == 5
+        assert calls[0]["start"] == 10          # note: Frappe's API param is `start`, not `offset`
+        assert calls[0]["order_by"] == "modified desc"
+
+    def test_handler_returns_frappe_list_verbatim(self, monkeypatch):
+        rows = [{"name": "task-1"}, {"name": "task-2"}]
+        monkeypatch.setattr(doctype_module, "_frappe", lambda: _fake_frappe(list_result=rows))
+
+        assert build_tool("ToDo", "list")["fn"]() == rows
+
+    def test_handler_raises_when_permission_denied(self, monkeypatch):
+        monkeypatch.setattr(doctype_module, "_frappe", lambda: _fake_frappe(permission=False))
+        with pytest.raises(PermissionError):
+            build_tool("ToDo", "list")["fn"]()
+
+    def test_check_permissions_false_skips_the_check(self, monkeypatch):
+        # Confirms we don't hit has_permission before the DB call at all.
+        def has_permission(*a, **k):
+            raise AssertionError("permission should not have been checked")
+
+        fake = SimpleNamespace(
+            has_permission=has_permission,
+            db=SimpleNamespace(get_list=lambda dt, **k: []),
+        )
+        monkeypatch.setattr(doctype_module, "_frappe", lambda: fake)
+
+        build_tool("ToDo", "list", check_permissions=False)["fn"]()

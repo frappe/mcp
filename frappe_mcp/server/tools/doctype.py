@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from frappe_mcp.server.tools import Tool
+from frappe_mcp.server.tools import Tool, ToolOptions, get_tool
 
 # Not derived from `frappe.model.numeric_fieldtypes` etc. — Frappe's groupings
 # classify by DB storage, not JSON Schema shape: Check would fall in as int,
@@ -103,27 +103,64 @@ def build_tool(doctype: str, operation: str, *, check_permissions: bool = True) 
     match operation:
         case "get":
             return _get(doctype, check_permissions=check_permissions)
+        case "list":
+            return _list(doctype, check_permissions=check_permissions)
         case _:
             raise ValueError(f"Unsupported operation: {operation!r}")
 
 
 def _get(doctype: str, *, check_permissions: bool) -> Tool:
-    input_schema = {
-        "type": "object",
-        "properties": {"name": {"type": "string", "description": f"{doctype} name"}},
-        "required": ["name"],
-    }
-
     def handler(name: str) -> dict[str, Any]:
         if check_permissions:
             _require_permission(doctype, "read", doc=name)
         return _frappe().get_doc(doctype, name).as_dict()
 
-    return Tool(
-        name=f"get_{_snake(doctype)}",
-        description=f"Get a {doctype} by name.",
-        input_schema=input_schema,
-        output_schema=None,
-        annotations={"readOnlyHint": True},
-        fn=handler,
+    handler.__name__ = f"get_{_snake(doctype)}"
+    handler.__doc__ = (
+        f"Get a {doctype} by name.\n"
+        f"\n"
+        f"Args:\n"
+        f"    name: {doctype} name."
     )
+    return get_tool(handler, ToolOptions(annotations={"readOnlyHint": True}))
+
+
+_DEFAULT_LIST_LIMIT = 20
+
+
+def _list(doctype: str, *, check_permissions: bool) -> Tool:
+    def handler(
+        filters: dict | None = None,
+        fields: list[str] | None = None,
+        limit: int = _DEFAULT_LIST_LIMIT,
+        offset: int = 0,
+        order_by: str | None = None,
+    ) -> list[dict[str, Any]]:
+        if check_permissions:
+            _require_permission(doctype, "read")
+        return _frappe().db.get_list(
+            doctype,
+            filters=filters or {},
+            fields=fields or ["name"],
+            limit=limit,
+            start=offset,
+            order_by=order_by,
+        )
+
+    handler.__name__ = f"list_{_snake(doctype)}"
+    handler.__doc__ = (
+        f"List {doctype} records with optional filters, fields, limit, and ordering.\n"
+        f"\n"
+        f"Args:\n"
+        f"    filters: Frappe filters, e.g. {{'status': 'Open'}}.\n"
+        f"    fields: Fieldnames to return; defaults to ['name'].\n"
+        f"    limit: Max rows to return (default {_DEFAULT_LIST_LIMIT}).\n"
+        f"    offset: Row offset for pagination.\n"
+        f"    order_by: e.g. 'modified desc'."
+    )
+
+    tool = get_tool(handler, ToolOptions(annotations={"readOnlyHint": True}))
+    # Semantic constraints the type system can't express.
+    tool["input_schema"]["properties"]["limit"]["minimum"] = 1
+    tool["input_schema"]["properties"]["offset"]["minimum"] = 0
+    return tool
