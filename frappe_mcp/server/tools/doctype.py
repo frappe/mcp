@@ -1,15 +1,28 @@
-"""Translate Frappe DocType fields into JSON Schema fragments.
+"""Auto-generate MCP tools from a Frappe DocType.
+
+Public surface:
+    expose_doctype(mcp, doctype, ...)  — register CRUD-ish tools on `mcp`
+    build_tool(doctype, operation)     — build one Tool for one op
 
 Frappe speaks fieldtypes ("Currency", "Link", "Check"); MCP clients speak
-JSON Schema. Bridging that gap is what lets `expose_doctype()` (upcoming)
-auto-generate LLM-callable tools from a DocType's metadata.
+JSON Schema. This module bridges them so hand-written and auto-generated
+tools follow the same code path.
 """
 
 from __future__ import annotations
 
-from typing import Any
+from collections.abc import Sequence
+from typing import TYPE_CHECKING, Any
 
 from frappe_mcp.server.tools import Tool, ToolOptions, get_tool
+
+if TYPE_CHECKING:
+    from frappe_mcp.server.server import MCP
+
+
+# Operations exposed by expose_doctype() when the caller doesn't specify.
+# Delete is deliberately excluded — opt in explicitly.
+DEFAULT_OPERATIONS: tuple[str, ...] = ("get", "list", "create", "update")
 
 # Not derived from `frappe.model.numeric_fieldtypes` etc. — Frappe's groupings
 # classify by DB storage, not JSON Schema shape: Check would fall in as int,
@@ -109,6 +122,8 @@ def build_tool(doctype: str, operation: str, *, check_permissions: bool = True) 
             return _create(doctype, check_permissions=check_permissions)
         case "update":
             return _update(doctype, check_permissions=check_permissions)
+        case "delete":
+            return _delete(doctype, check_permissions=check_permissions)
         case _:
             raise ValueError(f"Unsupported operation: {operation!r}")
 
@@ -246,3 +261,44 @@ def _update(doctype: str, *, check_permissions: bool) -> Tool:
         annotations={"readOnlyHint": False},
         fn=handler,
     )
+
+
+def _delete(doctype: str, *, check_permissions: bool) -> Tool:
+    def handler(name: str) -> dict[str, Any]:
+        if check_permissions:
+            _require_permission(doctype, "delete", doc=name)
+        _frappe().delete_doc(doctype, name)
+        return {"deleted": True, "doctype": doctype, "name": name}
+
+    handler.__name__ = f"delete_{_snake(doctype)}"
+    handler.__doc__ = (
+        f"Delete a {doctype} by name. Irreversible.\n"
+        f"\n"
+        f"Args:\n"
+        f"    name: {doctype} name."
+    )
+    return get_tool(
+        handler,
+        ToolOptions(annotations={"readOnlyHint": False, "destructiveHint": True}),
+    )
+
+
+def expose_doctype(
+    mcp: MCP,
+    doctype: str,
+    *,
+    operations: Sequence[str] = DEFAULT_OPERATIONS,
+    check_permissions: bool = True,
+) -> None:
+    """Register one MCP tool per `operations` entry for `doctype` on `mcp`.
+
+    Example:
+        mcp = frappe_mcp.MCP("my-server")
+        expose_doctype(mcp, "ToDo")
+        # → registers get_todo, list_todo, create_todo, update_todo
+
+        expose_doctype(mcp, "ToDo", operations=("get", "list"))       # read-only
+        expose_doctype(mcp, "ToDo", operations=(*DEFAULT_OPERATIONS, "delete"))
+    """
+    for op in operations:
+        mcp.add_tool(build_tool(doctype, op, check_permissions=check_permissions))

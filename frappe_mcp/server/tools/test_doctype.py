@@ -14,7 +14,12 @@ from types import SimpleNamespace
 import pytest
 
 from frappe_mcp.server.tools import doctype as doctype_module
-from frappe_mcp.server.tools.doctype import build_tool, frappe_fieldtype_to_json_schema
+from frappe_mcp.server.tools.doctype import (
+    DEFAULT_OPERATIONS,
+    build_tool,
+    expose_doctype,
+    frappe_fieldtype_to_json_schema,
+)
 
 
 _DEFAULT_FIELDS = frozenset({"owner", "creation", "modified", "modified_by", "docstatus", "idx"})
@@ -31,6 +36,7 @@ def _fake_frappe(
     inserted: list[dict] | None = None,
     saved: list[dict] | None = None,
     existing: dict | None = None,
+    deleted: list[tuple[str, str]] | None = None,
 ):
     """Minimal frappe stand-in for handler tests."""
     doc = doc if doc is not None else {"name": "x", "doctype": "ToDo"}
@@ -70,10 +76,15 @@ def _fake_frappe(
         base.update({"doctype": dt, "name": name})
         return _NewDoc(base)
 
+    def delete_doc(dt, name):
+        if deleted is not None:
+            deleted.append((dt, name))
+
     return SimpleNamespace(
         has_permission=lambda *a, **k: permission,
         get_doc=get_doc,
         get_meta=lambda dt: SimpleNamespace(fields=list(meta_fields)),
+        delete_doc=delete_doc,
         db=SimpleNamespace(get_list=get_list),
         model=SimpleNamespace(
             NO_VALUE_FIELDS=_NO_VALUE_FIELDS,
@@ -422,3 +433,79 @@ class TestUpdateOperation:
         )
         with pytest.raises(PermissionError):
             build_tool("ToDo", "update")["fn"](name="task-1", description="x")
+
+
+class TestDeleteOperation:
+    def test_tool_name_is_snake_cased(self):
+        assert build_tool("ToDo", "delete")["name"] == "delete_todo"
+
+    def test_marked_destructive_and_not_read_only(self):
+        annotations = build_tool("ToDo", "delete")["annotations"]
+        assert annotations["destructiveHint"] is True
+        assert annotations["readOnlyHint"] is False
+
+    def test_input_schema_requires_name(self):
+        schema = build_tool("ToDo", "delete")["input_schema"]
+        assert schema["required"] == ["name"]
+        assert schema["properties"]["name"]["type"] == "string"
+
+    def test_handler_calls_frappe_delete_doc(self, monkeypatch):
+        deleted: list[tuple[str, str]] = []
+        monkeypatch.setattr(doctype_module, "_frappe", lambda: _fake_frappe(deleted=deleted))
+
+        result = build_tool("ToDo", "delete")["fn"](name="task-1")
+
+        assert deleted == [("ToDo", "task-1")]
+        assert result == {"deleted": True, "doctype": "ToDo", "name": "task-1"}
+
+    def test_handler_raises_when_permission_denied(self, monkeypatch):
+        monkeypatch.setattr(doctype_module, "_frappe", lambda: _fake_frappe(permission=False))
+        with pytest.raises(PermissionError):
+            build_tool("ToDo", "delete")["fn"](name="task-1")
+
+
+class TestExposeDoctype:
+    def _fake_mcp(self):
+        added: list[dict] = []
+        return SimpleNamespace(add_tool=added.append), added
+
+    def test_defaults_exclude_delete(self, monkeypatch):
+        monkeypatch.setattr(doctype_module, "_frappe", lambda: _fake_frappe(meta_fields=_SAMPLE_FIELDS))
+        mcp, added = self._fake_mcp()
+
+        expose_doctype(mcp, "ToDo")
+
+        names = [t["name"] for t in added]
+        assert names == ["get_todo", "list_todo", "create_todo", "update_todo"]
+        assert "delete_todo" not in names
+
+    def test_delete_is_opt_in(self, monkeypatch):
+        monkeypatch.setattr(doctype_module, "_frappe", lambda: _fake_frappe(meta_fields=_SAMPLE_FIELDS))
+        mcp, added = self._fake_mcp()
+
+        expose_doctype(mcp, "ToDo", operations=(*DEFAULT_OPERATIONS, "delete"))
+
+        assert [t["name"] for t in added][-1] == "delete_todo"
+
+    def test_read_only_scope(self, monkeypatch):
+        monkeypatch.setattr(doctype_module, "_frappe", lambda: _fake_frappe(meta_fields=_SAMPLE_FIELDS))
+        mcp, added = self._fake_mcp()
+
+        expose_doctype(mcp, "ToDo", operations=("get", "list"))
+
+        assert [t["name"] for t in added] == ["get_todo", "list_todo"]
+
+    def test_check_permissions_propagates(self, monkeypatch):
+        monkeypatch.setattr(doctype_module, "_frappe", lambda: _fake_frappe(meta_fields=_SAMPLE_FIELDS))
+        mcp, added = self._fake_mcp()
+
+        expose_doctype(mcp, "ToDo", operations=("get",), check_permissions=False)
+
+        # Handler shouldn't call has_permission when check_permissions=False:
+        def blow_up(*a, **k):
+            raise AssertionError("permission check should have been skipped")
+
+        fake = _fake_frappe(meta_fields=_SAMPLE_FIELDS)
+        fake.has_permission = blow_up
+        monkeypatch.setattr(doctype_module, "_frappe", lambda: fake)
+        added[0]["fn"](name="task-1")

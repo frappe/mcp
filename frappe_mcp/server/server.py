@@ -264,6 +264,34 @@ class MCP:
         """
         self._prompt_registry[prompt['name']] = prompt
 
+    def expose_doctype(
+        self,
+        doctype: str,
+        *,
+        operations=None,
+        check_permissions: bool = True,
+    ) -> None:
+        """Register CRUD-ish MCP tools for a Frappe DocType.
+
+        Example:
+            mcp = frappe_mcp.MCP("my-server")
+            mcp.expose_doctype("ToDo")
+            # -> registers get_todo, list_todo, create_todo, update_todo
+
+            mcp.expose_doctype("ToDo", operations=("get", "list"))       # read-only
+            mcp.expose_doctype("ToDo", operations=("get", "list", "create",
+                                                   "update", "delete"))
+        """
+        from frappe_mcp.server.tools.doctype import DEFAULT_OPERATIONS
+        from frappe_mcp.server.tools.doctype import expose_doctype as _expose
+
+        _expose(
+            self,
+            doctype,
+            operations=operations if operations is not None else DEFAULT_OPERATIONS,
+            check_permissions=check_permissions,
+        )
+
     def _handle_request(
         self,
         request_id: types.RequestId,
