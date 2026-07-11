@@ -352,6 +352,42 @@ _SAMPLE_FIELDS = [
 ]
 
 
+class TestLazySchemaDerivation:
+    """build_tool() must not touch Frappe — schema is deferred to first read."""
+
+    @pytest.mark.parametrize("operation", ["create", "update"])
+    def test_build_does_not_call_frappe(self, monkeypatch, operation):
+        def blow_up():
+            raise AssertionError(f"_frappe() called at build_tool time for {operation}")
+
+        monkeypatch.setattr(doctype_module, "_frappe", blow_up)
+
+        # Building the tool must succeed even though Frappe would raise.
+        tool = build_tool("ToDo", operation)
+        assert tool["name"].endswith(f"_todo")
+
+    @pytest.mark.parametrize("operation", ["create", "update"])
+    def test_schema_resolves_on_first_read(self, monkeypatch, operation):
+        calls = []
+
+        def counting_frappe():
+            calls.append(1)
+            return _fake_frappe(meta_fields=_SAMPLE_FIELDS)
+
+        monkeypatch.setattr(doctype_module, "_frappe", counting_frappe)
+        schema = build_tool("ToDo", operation)["input_schema"]
+
+        # First access triggers exactly one _frappe() call.
+        _ = schema["properties"]
+        assert calls == [1]
+
+        # Repeated access uses cached data.
+        _ = schema["properties"]
+        _ = schema.get("required")
+        list(schema)
+        assert calls == [1]
+
+
 class TestCreateOperation:
     def test_tool_name_is_snake_cased(self, monkeypatch):
         monkeypatch.setattr(doctype_module, "_frappe", lambda: _fake_frappe(meta_fields=_SAMPLE_FIELDS))

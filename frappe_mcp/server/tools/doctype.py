@@ -185,6 +185,59 @@ def _list(doctype: str, *, check_permissions: bool) -> Tool:
     return tool
 
 
+class _LazyDict(dict):
+    """A dict that runs its factory on first read.
+
+    Used to defer `frappe.get_meta` from build_tool() time to the first
+    time an MCP client actually asks for the schema — so tool
+    registration stays Frappe-free and consistent with get/list/delete.
+    Result is cached on the instance after the first resolve.
+    """
+
+    def __init__(self, factory):
+        super().__init__()
+        self._factory = factory
+
+    def _resolve(self):
+        f = self._factory
+        if f is None:
+            return
+        self._factory = None
+        dict.update(self, f())
+
+    def __getitem__(self, key):
+        self._resolve()
+        return dict.__getitem__(self, key)
+
+    def __contains__(self, key):
+        self._resolve()
+        return dict.__contains__(self, key)
+
+    def __iter__(self):
+        self._resolve()
+        return dict.__iter__(self)
+
+    def __len__(self):
+        self._resolve()
+        return dict.__len__(self)
+
+    def get(self, key, default=None):
+        self._resolve()
+        return dict.get(self, key, default)
+
+    def keys(self):
+        self._resolve()
+        return dict.keys(self)
+
+    def values(self):
+        self._resolve()
+        return dict.values(self)
+
+    def items(self):
+        self._resolve()
+        return dict.items(self)
+
+
 def _writable_field_schemas(doctype: str) -> tuple[dict[str, dict], list[str]]:
     """Build (properties, required) for a `doctype` at build time.
 
@@ -209,10 +262,14 @@ def _writable_field_schemas(doctype: str) -> tuple[dict[str, dict], list[str]]:
 
 
 def _create(doctype: str, *, check_permissions: bool) -> Tool:
-    properties, required = _writable_field_schemas(doctype)
-    input_schema: dict[str, Any] = {"type": "object", "properties": properties}
-    if required:
-        input_schema["required"] = required
+    def _build_schema() -> dict[str, Any]:
+        properties, required = _writable_field_schemas(doctype)
+        schema: dict[str, Any] = {"type": "object", "properties": properties}
+        if required:
+            schema["required"] = required
+        return schema
+
+    input_schema = _LazyDict(_build_schema)
 
     def handler(**values: Any) -> dict[str, Any]:
         if check_permissions:
@@ -232,16 +289,15 @@ def _create(doctype: str, *, check_permissions: bool) -> Tool:
 
 
 def _update(doctype: str, *, check_permissions: bool) -> Tool:
-    properties, _ = _writable_field_schemas(doctype)
-    properties = {
-        "name": {"type": "string", "description": f"{doctype} name"},
-        **properties,
-    }
-    input_schema = {
-        "type": "object",
-        "properties": properties,
-        "required": ["name"],
-    }
+    def _build_schema() -> dict[str, Any]:
+        properties, _ = _writable_field_schemas(doctype)
+        properties = {
+            "name": {"type": "string", "description": f"{doctype} name"},
+            **properties,
+        }
+        return {"type": "object", "properties": properties, "required": ["name"]}
+
+    input_schema = _LazyDict(_build_schema)
 
     def handler(name: str, **values: Any) -> dict[str, Any]:
         if check_permissions:
