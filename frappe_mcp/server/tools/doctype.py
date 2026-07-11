@@ -105,6 +105,10 @@ def build_tool(doctype: str, operation: str, *, check_permissions: bool = True) 
             return _get(doctype, check_permissions=check_permissions)
         case "list":
             return _list(doctype, check_permissions=check_permissions)
+        case "create":
+            return _create(doctype, check_permissions=check_permissions)
+        case "update":
+            return _update(doctype, check_permissions=check_permissions)
         case _:
             raise ValueError(f"Unsupported operation: {operation!r}")
 
@@ -164,3 +168,81 @@ def _list(doctype: str, *, check_permissions: bool) -> Tool:
     tool["input_schema"]["properties"]["limit"]["minimum"] = 1
     tool["input_schema"]["properties"]["offset"]["minimum"] = 0
     return tool
+
+
+def _writable_field_schemas(doctype: str) -> tuple[dict[str, dict], list[str]]:
+    """Build (properties, required) for a `doctype` at build time.
+
+    Skips Frappe's NO_VALUE_FIELDS (Section Break, HTML, Table, ...) and
+    DEFAULT_FIELDS (owner, creation, modified, ...) that the framework
+    manages itself. Fields with `reqd=1` end up in the required list.
+    """
+    frappe = _frappe()
+    properties: dict[str, dict] = {}
+    required: list[str] = []
+    for field in frappe.get_meta(doctype).fields:
+        fieldtype = field.get("fieldtype")
+        fieldname = field.get("fieldname")
+        if not fieldname or fieldtype in frappe.model.NO_VALUE_FIELDS:
+            continue
+        if fieldname in frappe.model.DEFAULT_FIELDS:
+            continue
+        properties[fieldname] = frappe_fieldtype_to_json_schema(field)
+        if field.get("reqd"):
+            required.append(fieldname)
+    return properties, required
+
+
+def _create(doctype: str, *, check_permissions: bool) -> Tool:
+    properties, required = _writable_field_schemas(doctype)
+    input_schema: dict[str, Any] = {"type": "object", "properties": properties}
+    if required:
+        input_schema["required"] = required
+
+    def handler(**values: Any) -> dict[str, Any]:
+        if check_permissions:
+            _require_permission(doctype, "create")
+        doc = _frappe().get_doc({"doctype": doctype, **values})
+        doc.insert()
+        return doc.as_dict()
+
+    return Tool(
+        name=f"create_{_snake(doctype)}",
+        description=f"Create a new {doctype}.",
+        input_schema=input_schema,
+        output_schema=None,
+        annotations={"readOnlyHint": False},
+        fn=handler,
+    )
+
+
+def _update(doctype: str, *, check_permissions: bool) -> Tool:
+    properties, _ = _writable_field_schemas(doctype)
+    properties = {
+        "name": {"type": "string", "description": f"{doctype} name"},
+        **properties,
+    }
+    input_schema = {
+        "type": "object",
+        "properties": properties,
+        "required": ["name"],
+    }
+
+    def handler(name: str, **values: Any) -> dict[str, Any]:
+        if check_permissions:
+            _require_permission(doctype, "write", doc=name)
+        frappe = _frappe()
+        doc = frappe.get_doc(doctype, name)
+        for k, v in values.items():
+            doc.set(k, v)
+        doc.save()
+        return doc.as_dict()
+
+    return Tool(
+        name=f"update_{_snake(doctype)}",
+        description=f"Update fields on an existing {doctype}. Only pass fields you want to change.",
+        input_schema=input_schema,
+        output_schema=None,
+        annotations={"readOnlyHint": False},
+        fn=handler,
+    )

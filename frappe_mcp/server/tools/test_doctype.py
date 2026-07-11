@@ -17,20 +17,68 @@ from frappe_mcp.server.tools import doctype as doctype_module
 from frappe_mcp.server.tools.doctype import build_tool, frappe_fieldtype_to_json_schema
 
 
-def _fake_frappe(*, permission: bool = True, doc: dict | None = None, list_result=None, list_calls=None):
+_DEFAULT_FIELDS = frozenset({"owner", "creation", "modified", "modified_by", "docstatus", "idx"})
+_NO_VALUE_FIELDS = frozenset({"Section Break", "Column Break", "Tab Break", "HTML", "Table", "Button"})
+
+
+def _fake_frappe(
+    *,
+    permission: bool = True,
+    doc: dict | None = None,
+    list_result=None,
+    list_calls=None,
+    meta_fields: list[dict] | None = None,
+    inserted: list[dict] | None = None,
+    saved: list[dict] | None = None,
+    existing: dict | None = None,
+):
     """Minimal frappe stand-in for handler tests."""
     doc = doc if doc is not None else {"name": "x", "doctype": "ToDo"}
     list_result = list_result if list_result is not None else []
+    meta_fields = meta_fields if meta_fields is not None else []
 
     def get_list(dt, **kwargs):
         if list_calls is not None:
             list_calls.append({"doctype": dt, **kwargs})
         return list_result
 
+    class _NewDoc:
+        def __init__(self, data):
+            self._data = dict(data)
+
+        def insert(self):
+            if inserted is not None:
+                inserted.append(dict(self._data))
+
+        def set(self, k, v):
+            self._data[k] = v
+
+        def save(self):
+            if saved is not None:
+                saved.append(dict(self._data))
+
+        def as_dict(self):
+            return dict(self._data)
+
+    def get_doc(*args):
+        # frappe.get_doc({...}) — used by _create
+        if len(args) == 1 and isinstance(args[0], dict):
+            return _NewDoc(args[0])
+        # frappe.get_doc(doctype, name) — used by _get / _update
+        dt, name = args
+        base = dict(existing or doc)
+        base.update({"doctype": dt, "name": name})
+        return _NewDoc(base)
+
     return SimpleNamespace(
         has_permission=lambda *a, **k: permission,
-        get_doc=lambda dt, name: SimpleNamespace(as_dict=lambda: {**doc, "name": name, "doctype": dt}),
+        get_doc=get_doc,
+        get_meta=lambda dt: SimpleNamespace(fields=list(meta_fields)),
         db=SimpleNamespace(get_list=get_list),
+        model=SimpleNamespace(
+            NO_VALUE_FIELDS=_NO_VALUE_FIELDS,
+            DEFAULT_FIELDS=_DEFAULT_FIELDS,
+        ),
     )
 
 
@@ -282,3 +330,95 @@ class TestListOperation:
         monkeypatch.setattr(doctype_module, "_frappe", lambda: fake)
 
         build_tool("ToDo", "list", check_permissions=False)["fn"]()
+
+
+_SAMPLE_FIELDS = [
+    {"fieldname": "description", "fieldtype": "Data", "label": "Description", "reqd": 1},
+    {"fieldname": "status", "fieldtype": "Select", "options": "Open\nClosed", "label": "Status"},
+    {"fieldname": "priority", "fieldtype": "Int", "label": "Priority"},
+    {"fieldname": "sb", "fieldtype": "Section Break"},          # NO_VALUE — skip
+    {"fieldname": "owner", "fieldtype": "Link", "options": "User"},  # DEFAULT — skip
+]
+
+
+class TestCreateOperation:
+    def test_tool_name_is_snake_cased(self, monkeypatch):
+        monkeypatch.setattr(doctype_module, "_frappe", lambda: _fake_frappe(meta_fields=_SAMPLE_FIELDS))
+        assert build_tool("ToDo", "create")["name"] == "create_todo"
+
+    def test_input_schema_derives_from_meta(self, monkeypatch):
+        monkeypatch.setattr(doctype_module, "_frappe", lambda: _fake_frappe(meta_fields=_SAMPLE_FIELDS))
+        schema = build_tool("ToDo", "create")["input_schema"]
+
+        assert set(schema["properties"]) == {"description", "status", "priority"}
+        assert schema["properties"]["description"]["type"] == "string"
+        assert schema["properties"]["status"]["enum"] == ["Open", "Closed"]
+        assert schema["properties"]["priority"]["type"] == "integer"
+        assert schema["required"] == ["description"]
+
+    def test_omits_required_when_empty(self, monkeypatch):
+        no_required = [{"fieldname": "note", "fieldtype": "Data"}]
+        monkeypatch.setattr(doctype_module, "_frappe", lambda: _fake_frappe(meta_fields=no_required))
+        assert "required" not in build_tool("ToDo", "create")["input_schema"]
+
+    def test_marked_as_not_read_only(self, monkeypatch):
+        monkeypatch.setattr(doctype_module, "_frappe", lambda: _fake_frappe(meta_fields=[]))
+        assert build_tool("ToDo", "create")["annotations"]["readOnlyHint"] is False
+
+    def test_handler_inserts_new_doc(self, monkeypatch):
+        inserted: list[dict] = []
+        monkeypatch.setattr(
+            doctype_module, "_frappe",
+            lambda: _fake_frappe(meta_fields=_SAMPLE_FIELDS, inserted=inserted),
+        )
+
+        result = build_tool("ToDo", "create")["fn"](description="call dentist", status="Open")
+
+        assert inserted == [{"doctype": "ToDo", "description": "call dentist", "status": "Open"}]
+        assert result["description"] == "call dentist"
+
+    def test_handler_raises_when_permission_denied(self, monkeypatch):
+        monkeypatch.setattr(
+            doctype_module, "_frappe",
+            lambda: _fake_frappe(permission=False, meta_fields=_SAMPLE_FIELDS),
+        )
+        with pytest.raises(PermissionError):
+            build_tool("ToDo", "create")["fn"](description="test")
+
+
+class TestUpdateOperation:
+    def test_tool_name_is_snake_cased(self, monkeypatch):
+        monkeypatch.setattr(doctype_module, "_frappe", lambda: _fake_frappe(meta_fields=_SAMPLE_FIELDS))
+        assert build_tool("ToDo", "update")["name"] == "update_todo"
+
+    def test_only_name_is_required(self, monkeypatch):
+        monkeypatch.setattr(doctype_module, "_frappe", lambda: _fake_frappe(meta_fields=_SAMPLE_FIELDS))
+        schema = build_tool("ToDo", "update")["input_schema"]
+
+        assert schema["required"] == ["name"]
+        assert schema["properties"]["name"]["type"] == "string"
+        # Every writable field is still in properties, just not required.
+        assert {"name", "description", "status", "priority"} <= set(schema["properties"])
+
+    def test_handler_saves_updated_fields(self, monkeypatch):
+        saved: list[dict] = []
+        monkeypatch.setattr(
+            doctype_module, "_frappe",
+            lambda: _fake_frappe(meta_fields=_SAMPLE_FIELDS, saved=saved,
+                                 existing={"description": "old"}),
+        )
+
+        result = build_tool("ToDo", "update")["fn"](name="task-1", description="new")
+
+        # doc mutated in place, then save() captured it
+        assert saved[0]["name"] == "task-1"
+        assert saved[0]["description"] == "new"
+        assert result["description"] == "new"
+
+    def test_handler_raises_when_permission_denied(self, monkeypatch):
+        monkeypatch.setattr(
+            doctype_module, "_frappe",
+            lambda: _fake_frappe(permission=False, meta_fields=_SAMPLE_FIELDS),
+        )
+        with pytest.raises(PermissionError):
+            build_tool("ToDo", "update")["fn"](name="task-1", description="x")
