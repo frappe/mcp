@@ -37,6 +37,37 @@ def handle_mcp(): ...
 
 _On GitHub, click the Index button on the top right to view the index._
 
+## SentientX branch
+
+This branch builds on `tcr` and retains the Python 3.14 dependency markers used
+by the SentientX Frappe v16 bench. It is a Python library, not a site-installed
+Frappe app. The authenticated adapter is in `sentientx_hr.mcp` and exposes the
+same 18 tool names as TCR, including document create/update/submit/cancel.
+
+From `/home/admin1/sentientx/sentientx-live`, install the checked-out library:
+
+```bash
+env/bin/python -m pip install --no-deps -e apps/frappe-mcp
+```
+
+Connect using Streamable HTTP at:
+
+```text
+https://erp.sentientx.io/api/method/sentientx_hr.mcp.handle_mcp
+```
+
+Use Frappe OAuth authorization-code flow with PKCE, or an API client supporting
+`Authorization: token <api_key>:<api_secret>`. Credentials belong to the ERP user;
+tools use that user's permissions. OAuth discovery and dynamic client registration
+are provided by Frappe v16's OAuth Settings; no v15 discovery routing shim is needed.
+Raven tools respect normal user access, including private-channel restrictions.
+Validation rolls back database changes, and failed MCP calls roll back before
+Frappe's successful-POST commit. Validation hooks may still have external effects.
+
+Verification: library pytest suite, `sentientx_hr.tests.test_mcp` unit tests,
+and authenticated HTTP initialize/tools/list/read-only tool calls. Production
+create/update/submit/cancel operations are not exercised as smoke tests.
+
 ## Installation
 
 Using PIP:
