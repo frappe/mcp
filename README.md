@@ -1,5 +1,15 @@
 # Frappe MCP
 
+> [!WARNING]
+>
+> **This app is deprecated.**
+>
+> Frappe Framework now has a built-in MCP server. Use the built-in MCP server
+> for new projects, and move existing projects to it. This app will not get new
+> features.
+>
+> Refer to the [Frappe MCP guide](https://docs.frappe.io/framework/guides-integration/mcp).
+
 Frappe MCP allows your Frappe Framework app to function as a [Streamable HTTP MCP
 server](https://modelcontextprotocol.io/specification/2025-06-18/basic/transports#streamable-http).
 
